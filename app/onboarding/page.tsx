@@ -16,6 +16,9 @@ export default function OnboardingPage() {
     email: '',
     phone: '',
     alternatePhone: '',
+    parentName: '',
+    parentPhone: '',
+    parentEmail: '',
     address: '',
     city: '',
     state: '',
@@ -55,6 +58,9 @@ export default function OnboardingPage() {
           email: student.email || '',
           phone: student.phone || '',
           alternatePhone: student.alternatePhone || '',
+          parentName: student.parentName || '',
+          parentPhone: student.parentPhone || '',
+          parentEmail: student.parentEmail || '',
           address: student.address || '',
           city: student.city || '',
           state: student.state || '',
@@ -138,9 +144,23 @@ export default function OnboardingPage() {
       return formData.firstName && formData.lastName && formData.dateOfBirth && formData.nationality && formData.gender
     }
     if (currentStep === 2) {
-      return formData.phone && formData.address
+      return formData.phone && formData.address && formData.parentName && formData.parentPhone && formData.parentEmail
     }
     return true
+  }
+
+  // Convert date from YYYY-MM-DD to DD-MM-YYYY for display
+  const formatDateForDisplay = (isoDate: string) => {
+    if (!isoDate) return ''
+    const [year, month, day] = isoDate.split('-')
+    return `${day}-${month}-${year}`
+  }
+
+  // Convert date from DD-MM-YYYY to YYYY-MM-DD for storage
+  const formatDateForStorage = (displayDate: string) => {
+    if (!displayDate) return ''
+    const [day, month, year] = displayDate.split('-')
+    return `${year}-${month}-${day}`
   }
 
   return (
@@ -163,16 +183,16 @@ export default function OnboardingPage() {
 
         {/* Progress Steps */}
         <div className="mb-8">
-          <div className="flex items-center justify-between max-w-2xl mx-auto">
+          <div className="flex items-center justify-center max-w-3xl mx-auto">
             {[
               { num: 1, label: 'Personal Info' },
               { num: 2, label: 'Contact Details' },
               { num: 3, label: 'Academic Info' }
             ].map((step, idx) => (
-              <div key={step.num} className="flex items-center flex-1">
-                <div className="flex flex-col items-center flex-1">
+              <div key={step.num} className="flex items-center">
+                <div className="flex flex-col items-center">
                   <div
-                    className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg transition-all duration-300 ${
+                    className={`w-14 h-14 rounded-full flex items-center justify-center font-bold text-lg transition-all duration-300 ${
                       step.num < currentStep
                         ? 'bg-indigo-600 text-white shadow-lg'
                         : step.num === currentStep
@@ -188,16 +208,16 @@ export default function OnboardingPage() {
                       step.num
                     )}
                   </div>
-                  <span className={`mt-2 text-sm font-medium ${
+                  <span className={`mt-3 text-sm font-medium whitespace-nowrap ${
                     step.num <= currentStep ? 'text-white' : 'text-indigo-200'
                   }`}>
                     {step.label}
                   </span>
                 </div>
                 {idx < 2 && (
-                  <div className={`h-1 flex-1 mx-4 rounded transition-all duration-300 ${
+                  <div className={`h-1 w-32 mx-4 rounded transition-all duration-300 ${
                     step.num < currentStep ? 'bg-indigo-600' : 'bg-white bg-opacity-30'
-                  }`} style={{ marginTop: '-2rem' }}></div>
+                  }`}></div>
                 )}
               </div>
             ))}
@@ -258,9 +278,11 @@ export default function OnboardingPage() {
                       type="date"
                       required
                       className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                      placeholder="DD-MM-YYYY"
                       value={formData.dateOfBirth}
                       onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
                     />
+                    <p className="text-xs text-gray-500 mt-1">Format: DD-MM-YYYY</p>
                   </div>
 
                   <div>
@@ -284,14 +306,17 @@ export default function OnboardingPage() {
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
                       Nationality <span className="text-red-500">*</span>
                     </label>
-                    <input
-                      type="text"
+                    <select
                       required
                       className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-                      placeholder="e.g. Pakistani, Indian, British"
                       value={formData.nationality}
                       onChange={(e) => setFormData({ ...formData, nationality: e.target.value })}
-                    />
+                    >
+                      <option value="">Select Nationality</option>
+                      <option value="Indian">Indian</option>
+                      <option value="British">British</option>
+                      <option value="American">American</option>
+                    </select>
                   </div>
                 </div>
               </div>
@@ -299,10 +324,10 @@ export default function OnboardingPage() {
 
             {/* Step 2: Contact Details */}
             {currentStep === 2 && (
-              <div className="space-y-6 animate-fade-in">
-                <h3 className="text-2xl font-bold text-gray-800 mb-6">Contact Details</h3>
+              <div className="space-y-5 animate-fade-in">
+                <h3 className="text-2xl font-bold text-gray-800 mb-4">Contact Details</h3>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
                       Phone Number <span className="text-red-500">*</span>
@@ -394,6 +419,54 @@ export default function OnboardingPage() {
                       value={formData.country}
                       onChange={(e) => setFormData({ ...formData, country: e.target.value })}
                     />
+                  </div>
+                </div>
+
+                <div className="pt-3 border-t border-gray-200">
+                  <h4 className="text-lg font-semibold text-gray-800 mb-3">Parent/Guardian Contact</h4>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Parent/Guardian Name <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                        placeholder="e.g. John Doe"
+                        value={formData.parentName}
+                        onChange={(e) => setFormData({ ...formData, parentName: e.target.value })}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Parent Phone <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="tel"
+                        required
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                        placeholder="+91 1234567890"
+                        value={formData.parentPhone}
+                        onChange={(e) => setFormData({ ...formData, parentPhone: e.target.value })}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Parent Email <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="email"
+                        required
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                        placeholder="parent@example.com"
+                        value={formData.parentEmail}
+                        onChange={(e) => setFormData({ ...formData, parentEmail: e.target.value })}
+                      />
+                    </div>
                   </div>
                 </div>
               </div>

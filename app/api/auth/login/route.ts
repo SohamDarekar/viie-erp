@@ -5,18 +5,23 @@ import { verifyPassword, setAuthCookie } from '@/lib/auth'
 import { createAuditLog } from '@/lib/audit'
 
 const loginSchema = z.object({
-  email: z.string().email(),
+  emailOrUsername: z.string().min(1),
   password: z.string(),
 })
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { email, password } = loginSchema.parse(body)
+    const { emailOrUsername, password } = loginSchema.parse(body)
 
-    // Find user
-    const user = await prisma.user.findUnique({
-      where: { email },
+    // Find user by email or username
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { email: emailOrUsername },
+          { username: emailOrUsername },
+        ],
+      },
       include: {
         student: {
           select: {
@@ -30,6 +35,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { error: 'Invalid credentials' },
         { status: 401 }
+      )
+    }
+
+    console.log(`Login attempt for ${emailOrUsername} - emailVerified: ${user.emailVerified}`)
+
+    // Check if email is verified
+    if (!user.emailVerified) {
+      return NextResponse.json(
+        { error: 'Please verify your email before logging in. Check your inbox for the verification link.' },
+        { status: 403 }
       )
     }
 

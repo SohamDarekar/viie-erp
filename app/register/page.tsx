@@ -6,16 +6,19 @@ import { useRouter } from 'next/navigation'
 export default function RegisterPage() {
   const router = useRouter()
   const [formData, setFormData] = useState({
+    username: '',
     email: '',
     password: '',
     confirmPassword: '',
   })
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
   const [loading, setLoading] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+    setSuccess('')
 
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match')
@@ -27,6 +30,16 @@ export default function RegisterPage() {
       return
     }
 
+    if (formData.username.length < 3) {
+      setError('Username must be at least 3 characters')
+      return
+    }
+
+    if (!/^[a-zA-Z0-9_]+$/.test(formData.username)) {
+      setError('Username can only contain letters, numbers, and underscores')
+      return
+    }
+
     setLoading(true)
 
     try {
@@ -34,6 +47,7 @@ export default function RegisterPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          username: formData.username,
           email: formData.email,
           password: formData.password,
         }),
@@ -46,8 +60,8 @@ export default function RegisterPage() {
         return
       }
 
-      // Redirect to onboarding
-      router.push('/onboarding')
+      // Show success message
+      setSuccess(data.message || 'Registration successful! Please check your email to verify your account.')
     } catch (err) {
       setError('An error occurred')
     } finally {
@@ -112,7 +126,39 @@ export default function RegisterPage() {
               </div>
             )}
 
+            {success && (
+              <div className="alert alert-success bg-green-50 border border-green-200 text-green-700">
+                <svg className="w-5 h-5 inline mr-2" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                {success}
+              </div>
+            )}
+
             <div className="space-y-5">
+              <div>
+                <label htmlFor="username" className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                  Username
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <svg className="h-5 w-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                  </div>
+                  <input
+                    id="username"
+                    type="text"
+                    required
+                    className="input pl-11"
+                    placeholder="johndoe"
+                    value={formData.username}
+                    onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                  />
+                </div>
+                <p className="text-xs text-slate-500 mt-1">Letters, numbers, and underscores only</p>
+              </div>
+
               <div>
                 <label htmlFor="email" className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
                   Email Address

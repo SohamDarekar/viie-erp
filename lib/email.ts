@@ -120,3 +120,73 @@ export function getBulkAnnouncementTemplate(subject: string, message: string) {
     `,
   }
 }
+
+export function getEmailVerificationTemplate(email: string, verificationUrl: string) {
+  return {
+    subject: 'Verify your email - VIIE ERP',
+    html: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+          .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+          .button { display: inline-block; background: #667eea; color: white !important; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; font-weight: bold; }
+          .button:hover { background: #5568d3; }
+          .footer { text-align: center; margin-top: 20px; color: #666; font-size: 12px; }
+          .note { background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>Welcome to VIIE ERP!</h1>
+          </div>
+          <div class="content">
+            <h2>Verify Your Email Address</h2>
+            <p>Hello,</p>
+            <p>Thank you for registering with VIIE ERP. To complete your registration and access your account, please verify your email address by clicking the button below:</p>
+            
+            <div style="text-align: center;">
+              <a href="${verificationUrl}" class="button">Verify Email Address</a>
+            </div>
+            
+            <div class="note">
+              <strong>Note:</strong> This verification link will expire in 24 hours for security purposes.
+            </div>
+            
+            <p>If the button doesn't work, you can copy and paste this link into your browser:</p>
+            <p style="word-break: break-all; color: #667eea;">${verificationUrl}</p>
+            
+            <p>If you didn't create an account with VIIE ERP, you can safely ignore this email.</p>
+            
+            <p>Best regards,<br/>The VIIE ERP Team</p>
+          </div>
+          <div class="footer">
+            <p>This is an automated email. Please do not reply to this message.</p>
+            <p>&copy; ${new Date().getFullYear()} VIIE ERP. All rights reserved.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `,
+    text: `
+Welcome to VIIE ERP!
+
+Verify Your Email Address
+
+Thank you for registering with VIIE ERP. To complete your registration and access your account, please verify your email address by clicking the link below:
+
+${verificationUrl}
+
+Note: This verification link will expire in 24 hours for security purposes.
+
+If you didn't create an account with VIIE ERP, you can safely ignore this email.
+
+Best regards,
+The VIIE ERP Team
+    `,
+  }
+}

@@ -15,6 +15,9 @@ const onboardingSchema = z.object({
   nationality: z.string().optional(),
   countryOfBirth: z.string().optional(),
   nativeLanguage: z.string().optional(),
+  parentName: z.string().optional(),
+  parentPhone: z.string().optional(),
+  parentEmail: z.string().optional(),
   passportNumber: z.string().optional(),
   nameAsPerPassport: z.string().optional(),
   passportIssueLocation: z.string().optional(),
@@ -77,6 +80,9 @@ export async function POST(req: NextRequest) {
     if (data.nationality) studentData.nationality = data.nationality
     if (data.countryOfBirth) studentData.countryOfBirth = data.countryOfBirth
     if (data.nativeLanguage) studentData.nativeLanguage = data.nativeLanguage
+    if (data.parentName) studentData.parentName = data.parentName
+    if (data.parentPhone) studentData.parentPhone = data.parentPhone
+    if (data.parentEmail) studentData.parentEmail = data.parentEmail
     if (data.passportNumber) studentData.passportNumber = data.passportNumber
     if (data.nameAsPerPassport) studentData.nameAsPerPassport = data.nameAsPerPassport
     if (data.passportIssueLocation) studentData.passportIssueLocation = data.passportIssueLocation

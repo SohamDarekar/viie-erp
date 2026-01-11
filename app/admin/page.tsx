@@ -8,12 +8,19 @@ interface Student {
   id: string
   firstName: string
   lastName: string
+  email?: string
+  phone?: string
+  dateOfBirth?: string
+  gender?: string
+  nationality?: string
   program: string
   batch: {
     id: string
     name: string
   }
   user: {
+    id: string
+    username: string
     email: string
   }
 }
@@ -33,6 +40,7 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState<'overview' | 'students' | 'batches' | 'email'>('overview')
   const [batches, setBatches] = useState<Batch[]>([])
   const [students, setStudents] = useState<Student[]>([])
+  const [currentUser, setCurrentUser] = useState<{email: string, role: string} | null>(null)
   const [stats, setStats] = useState({
     totalStudents: 0,
     totalBatches: 0,
@@ -45,6 +53,11 @@ export default function AdminDashboard() {
   const [selectedStudent, setSelectedStudent] = useState<string>('')
   const [selectedBatchForAssign, setSelectedBatchForAssign] = useState<string>('')
   
+  const [batchForm, setBatchForm] = useState({
+    program: 'BS' as 'BS' | 'BBA',
+    intakeYear: new Date().getFullYear(),
+  })
+  
   const [emailForm, setEmailForm] = useState({
     recipientType: 'ALL' as 'BATCH' | 'PROGRAM' | 'ALL',
     batchId: '',
@@ -53,9 +66,40 @@ export default function AdminDashboard() {
     message: '',
   })
 
+  const [editingStudent, setEditingStudent] = useState<Student | null>(null)
+  const [editForm, setEditForm] = useState({
+    firstName: '',
+    lastName: '',
+    username: '',
+    email: '',
+    phone: '',
+    program: 'BS' as 'BS' | 'BBA',
+    batchId: '',
+  })
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null)
+
   useEffect(() => {
     loadData()
+    loadCurrentUser()
   }, [])
+
+  const loadCurrentUser = async () => {
+    try {
+      const res = await fetch('/api/auth/me')
+      if (res.ok) {
+        const data = await res.json()
+        setCurrentUser(data.user)
+        console.log('Current user:', data.user)
+        if (data.user.role !== 'ADMIN') {
+          console.error('WARNING: You are not logged in as an ADMIN!')
+          setError('You must be logged in as an admin to access this page')
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load current user:', error)
+    }
+  }
 
   const loadData = async () => {
     try {
@@ -64,8 +108,25 @@ export default function AdminDashboard() {
         fetch('/api/admin/students'),
       ])
       
+      if (!batchRes.ok) {
+        const errorData = await batchRes.json()
+        console.error('Failed to load batches:', errorData)
+        setError(`Failed to load batches: ${errorData.error || 'Unknown error'}`)
+        return
+      }
+
+      if (!studentRes.ok) {
+        const errorData = await studentRes.json()
+        console.error('Failed to load students:', errorData)
+        setError(`Failed to load students: ${errorData.error || 'Unknown error'}`)
+        return
+      }
+      
       const batchData = await batchRes.json()
       const studentData = await studentRes.json()
+      
+      console.log('Loaded batches:', batchData)
+      console.log('Loaded students:', studentData)
       
       const batchList = batchData.batches || []
       setBatches(batchList)
@@ -78,6 +139,7 @@ export default function AdminDashboard() {
       })
     } catch (error) {
       console.error('Failed to load data:', error)
+      setError('Failed to load data. Please check console for details.')
     }
   }
 
@@ -119,6 +181,36 @@ export default function AdminDashboard() {
     }
   }
 
+  const handleCreateBatch = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    setError('')
+    setSuccess('')
+
+    try {
+      const res = await fetch('/api/admin/batches', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(batchForm),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        setError(data.error || 'Failed to create batch')
+        return
+      }
+
+      setSuccess(`Batch ${data.batch.name} created successfully!`)
+      setBatchForm({ program: 'BS', intakeYear: new Date().getFullYear() })
+      await loadData()
+    } catch (err) {
+      setError('An error occurred')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handleSendEmail = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
@@ -147,6 +239,82 @@ export default function AdminDashboard() {
         subject: '',
         message: '',
       })
+    } catch (err) {
+      setError('An error occurred')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleEditStudent = (student: Student) => {
+    setEditingStudent(student)
+    setEditForm({
+      firstName: student.firstName,
+      lastName: student.lastName,
+      username: student.user.username,
+      email: student.user.email,
+      phone: student.phone || '',
+      program: student.program as 'BS' | 'BBA',
+      batchId: student.batch.id,
+    })
+    setShowEditModal(true)
+    setError('')
+    setSuccess('')
+  }
+
+  const handleUpdateStudent = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editingStudent) return
+
+    setLoading(true)
+    setError('')
+    setSuccess('')
+
+    try {
+      const res = await fetch(`/api/admin/students/${editingStudent.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editForm),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        setError(data.error || 'Failed to update student')
+        return
+      }
+
+      setSuccess('Student updated successfully!')
+      setShowEditModal(false)
+      setEditingStudent(null)
+      await loadData()
+    } catch (err) {
+      setError('An error occurred')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleDeleteStudent = async (studentId: string) => {
+    setLoading(true)
+    setError('')
+    setSuccess('')
+
+    try {
+      const res = await fetch(`/api/admin/students/${studentId}`, {
+        method: 'DELETE',
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        setError(data.error || 'Failed to delete student')
+        return
+      }
+
+      setSuccess('Student deleted successfully!')
+      setShowDeleteConfirm(null)
+      await loadData()
     } catch (err) {
       setError('An error occurred')
     } finally {
@@ -291,16 +459,68 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            <div className="card">
-              <div className="card-header">
-                <h2 className="card-title">All Batches</h2>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+              {/* Create Batch Form */}
+              <div className="card lg:col-span-1">
+                <div className="card-header">
+                  <h2 className="card-title">Create New Batch</h2>
+                </div>
+                <form onSubmit={handleCreateBatch} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                      Program
+                    </label>
+                    <select
+                      className="input"
+                      value={batchForm.program}
+                      onChange={(e) => setBatchForm({ ...batchForm, program: e.target.value as 'BS' | 'BBA' })}
+                      required
+                    >
+                      <option value="BS">BS</option>
+                      <option value="BBA">BBA</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                      Intake Year
+                    </label>
+                    <input
+                      type="number"
+                      className="input"
+                      value={batchForm.intakeYear}
+                      onChange={(e) => setBatchForm({ ...batchForm, intakeYear: parseInt(e.target.value) })}
+                      min="2000"
+                      max="2100"
+                      required
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="btn btn-primary w-full"
+                  >
+                    {loading ? 'Creating...' : 'Create Batch'}
+                  </button>
+                </form>
               </div>
+
+              {/* All Batches List */}
+              <div className="card lg:col-span-2">
+                <div className="card-header">
+                  <h2 className="card-title">All Batches</h2>
+                  <span className="text-sm text-slate-600">
+                    {batches.length} batch{batches.length !== 1 ? 'es' : ''} loaded
+                  </span>
+                </div>
               {batches.length === 0 ? (
                 <div className="text-center py-12">
                   <svg className="w-16 h-16 mx-auto text-slate-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                   </svg>
-                  <p className="text-slate-500 font-medium">No batches found</p>
+                  <p className="text-slate-500 font-medium mb-2">No batches found</p>
+                  <p className="text-slate-400 text-sm">Check the browser console for errors</p>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
@@ -330,6 +550,7 @@ export default function AdminDashboard() {
                   </table>
                 </div>
               )}
+              </div>
             </div>
           </div>
         )}
@@ -354,22 +575,76 @@ export default function AdminDashboard() {
                   <table className="min-w-full divide-y divide-slate-200">
                     <thead className="bg-slate-50">
                       <tr>
-                        <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase">Name</th>
-                        <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase">Email</th>
-                        <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase">Program</th>
-                        <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase">Batch</th>
+                        <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Name</th>
+                        <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Username</th>
+                        <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Email</th>
+                        <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Program</th>
+                        <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Batch</th>
+                        <th className="px-6 py-4 text-right text-xs font-bold text-slate-700 uppercase tracking-wider">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-slate-200">
                       {students.map((student) => (
-                        <tr key={student.id} className="hover:bg-slate-50">
-                          <td className="px-6 py-4 font-semibold text-slate-900">
-                            {student.firstName} {student.lastName}
+                        <tr key={student.id} className="hover:bg-slate-50 transition-colors">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center">
+                              <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-md">
+                                {student.firstName[0]}{student.lastName[0]}
+                              </div>
+                              <div className="ml-3">
+                                <div className="font-semibold text-slate-900">
+                                  {student.firstName} {student.lastName}
+                                </div>
+                              </div>
+                            </div>
                           </td>
-                          <td className="px-6 py-4 text-slate-700">{student.user.email}</td>
-                          <td className="px-6 py-4 text-slate-700">{student.program}</td>
-                          <td className="px-6 py-4">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center">
+                              <svg className="w-4 h-4 text-slate-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                              </svg>
+                              <span className="text-slate-700 font-medium">@{student.user.username}</span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center">
+                              <svg className="w-4 h-4 text-slate-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                              </svg>
+                              <span className="text-slate-600 text-sm">{student.user.email}</span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className="inline-flex px-3 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                              {student.program}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
                             <span className="badge badge-primary">{student.batch.name}</span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <div className="flex justify-end gap-2">
+                              <button
+                                onClick={() => handleEditStudent(student)}
+                                className="inline-flex items-center px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm hover:shadow-md"
+                                title="Edit student"
+                              >
+                                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                </svg>
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => setShowDeleteConfirm(student.id)}
+                                className="inline-flex items-center px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors shadow-sm hover:shadow-md"
+                                title="Delete student"
+                              >
+                                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                                Delete
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -417,9 +692,9 @@ export default function AdminDashboard() {
                     onChange={(e) => setSelectedBatchForAssign(e.target.value)}
                   >
                     <option value="">-- Choose a batch --</option>
-                    {batches.filter(b => b.isActive).map((batch) => (
+                    {batches.map((batch) => (
                       <option key={batch.id} value={batch.id}>
-                        {batch.name} ({batch._count?.students || 0} students)
+                        {batch.name} ({batch.program}) - {batch._count?.students || 0} students {!batch.isActive && '(Archived)'}
                       </option>
                     ))}
                   </select>
@@ -552,6 +827,192 @@ export default function AdminDashboard() {
           </div>
         )}
       </main>
+
+      {/* Edit Student Modal */}
+      {showEditModal && editingStudent && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 rounded-t-2xl">
+              <div className="flex justify-between items-center">
+                <h3 className="text-2xl font-bold text-slate-800">Edit Student</h3>
+                <button
+                  onClick={() => {
+                    setShowEditModal(false)
+                    setEditingStudent(null)
+                  }}
+                  className="text-slate-400 hover:text-slate-600 transition-colors"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <form onSubmit={handleUpdateStudent} className="p-6 space-y-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    First Name
+                  </label>
+                  <input
+                    type="text"
+                    className="input"
+                    value={editForm.firstName}
+                    onChange={(e) => setEditForm({ ...editForm, firstName: e.target.value })}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    Last Name
+                  </label>
+                  <input
+                    type="text"
+                    className="input"
+                    value={editForm.lastName}
+                    onChange={(e) => setEditForm({ ...editForm, lastName: e.target.value })}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    Username
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <span className="text-slate-500">@</span>
+                    </div>
+                    <input
+                      type="text"
+                      className="input pl-8"
+                      value={editForm.username}
+                      onChange={(e) => setEditForm({ ...editForm, username: e.target.value })}
+                      required
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    className="input"
+                    value={editForm.email}
+                    onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    Phone
+                  </label>
+                  <input
+                    type="tel"
+                    className="input"
+                    value={editForm.phone}
+                    onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    Program
+                  </label>
+                  <select
+                    className="input"
+                    value={editForm.program}
+                    onChange={(e) => setEditForm({ ...editForm, program: e.target.value as 'BS' | 'BBA' })}
+                    required
+                  >
+                    <option value="BS">BS</option>
+                    <option value="BBA">BBA</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  Batch
+                </label>
+                <select
+                  className="input"
+                  value={editForm.batchId}
+                  onChange={(e) => setEditForm({ ...editForm, batchId: e.target.value })}
+                  required
+                >
+                  {batches.map((batch) => (
+                    <option key={batch.id} value={batch.id}>
+                      {batch.name} ({batch.program})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex gap-3 pt-4 border-t border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEditModal(false)
+                    setEditingStudent(null)
+                  }}
+                  className="flex-1 px-4 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 font-medium transition-colors"
+                  disabled={loading}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 btn btn-primary"
+                  disabled={loading}
+                >
+                  {loading ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+            <div className="text-center">
+              <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-red-100 mb-4">
+                <svg className="h-8 w-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold text-slate-900 mb-2">Delete Student</h3>
+              <p className="text-slate-600 mb-6">
+                Are you sure you want to delete this student? This action cannot be undone and will permanently remove all their data.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowDeleteConfirm(null)}
+                  className="flex-1 px-4 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 font-medium transition-colors"
+                  disabled={loading}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => handleDeleteStudent(showDeleteConfirm)}
+                  className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium transition-colors shadow-sm hover:shadow-md"
+                  disabled={loading}
+                >
+                  {loading ? 'Deleting...' : 'Delete'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

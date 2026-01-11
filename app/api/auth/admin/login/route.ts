@@ -38,10 +38,12 @@ export async function POST(req: NextRequest) {
       // Create admin user if doesn't exist
       adminUser = await prisma.user.create({
         data: {
+          username: 'admin',
           email: 'admin@viie.edu',
           password: 'hashed-admin-password', // Not used for login
           role: 'ADMIN',
           isActive: true,
+          emailVerified: true,
         },
       })
     }

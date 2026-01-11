@@ -6,7 +6,16 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // Public routes
-  const publicRoutes = ['/login', '/register', '/admin/login', '/api/auth/login', '/api/auth/register', '/api/auth/admin/login']
+  const publicRoutes = [
+    '/login', 
+    '/register', 
+    '/admin/login', 
+    '/api/auth/login', 
+    '/api/auth/register', 
+    '/api/auth/admin/login',
+    '/api/auth/verify-email',
+    '/api/auth/resend-verification'
+  ]
   const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route))
 
   if (isPublicRoute) {
