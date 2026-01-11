@@ -1,0 +1,334 @@
+// This is your Prisma schema file for MongoDB
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+// ======================
+// CORE USER MODELS
+// ======================
+
+model User {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  email     String   @unique
+  password  String
+  role      UserRole @default(STUDENT)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relationships
+  student      Student?
+  auditLogs    AuditLog[]
+  createdTasks Task[]     @relation("TaskCreator")
+
+  @@map("users")
+}
+
+enum UserRole {
+  STUDENT
+  ADMIN
+}
+
+// ======================
+// STUDENT PROFILE
+// ======================
+
+model Student {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String    @unique @db.ObjectId
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Personal Information
+  firstName          String
+  lastName           String
+  email              String? // Duplicate for convenience, also in User
+  phone              String?
+  dateOfBirth        DateTime?
+  gender             String?
+  nationality        String?
+  countryOfBirth     String?
+  nativeLanguage     String?
+  
+  // Passport Information
+  passportNumber     String?
+  nameAsPerPassport  String?
+  passportIssueLocation String?
+  passportIssueDate  DateTime?
+  passportExpiryDate DateTime?
+  
+  // Address Information
+  address            String?
+  postalCode         String?
+  
+  // Academic Information
+  program     Program
+  intakeYear  Int
+  
+  // Batch Assignment
+  batchId     String    @db.ObjectId
+  batch       Batch     @relation(fields: [batchId], references: [id])
+  
+  // Profile Status
+  hasCompletedOnboarding Boolean @default(false)
+  
+  // Timestamps
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  archivedAt  DateTime? // For soft delete
+  
+  // Relationships
+  documents   Document[]
+  tasks       TaskAssignment[]
+
+  @@index([batchId])
+  @@map("students")
+}
+
+enum Program {
+  BS
+  BBA
+}
+
+// ======================
+// BATCH MANAGEMENT
+// ======================
+
+model Batch {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  program     Program
+  intakeYear  Int
+  
+  // Auto-generated batch name
+  name        String   @unique // e.g., "BS-2024"
+  
+  // Status
+  isActive    Boolean  @default(true)
+  archivedAt  DateTime?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relationships
+  students    Student[]
+  tasks       TaskAssignment[]
+  resources   Resource[]
+
+  // Compound unique index to prevent duplicate batches
+  @@unique([program, intakeYear])
+  @@map("batches")
+}
+
+// ======================
+// DOCUMENT MANAGEMENT
+// ======================
+
+model Document {
+  id           String       @id @default(auto()) @map("_id") @db.ObjectId
+  studentId    String       @db.ObjectId
+  student      Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  
+  type         DocumentType
+  fileName     String       // Original filename
+  storedPath   String       // Server file path
+  fileSize     Int          // Bytes
+  mimeType     String
+  
+  // Document verification
+  isVerified   Boolean      @default(false)
+  verifiedBy   String?      // Admin user ID
+  verifiedAt   DateTime?
+  
+  // Metadata
+  uploadedAt   DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  
+  // Audit
+  accessLogs   DocumentAccessLog[]
+
+  @@index([studentId])
+  @@index([type])
+  @@map("documents")
+}
+
+enum DocumentType {
+  PASSPORT
+  IELTS
+  VISA
+  I20
+  TRANSCRIPT
+  OTHER
+}
+
+// ======================
+// TASK MANAGEMENT
+// ======================
+
+model Task {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  title       String
+  description String
+  dueDate     DateTime?
+  
+  // Assignment scope
+  assignmentType TaskAssignmentType
+  
+  // Creator
+  createdById String   @db.ObjectId
+  createdBy   User     @relation("TaskCreator", fields: [createdById], references: [id])
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relationships
+  assignments TaskAssignment[]
+
+  @@map("tasks")
+}
+
+enum TaskAssignmentType {
+  INDIVIDUAL
+  BATCH
+  PROGRAM
+}
+
+// Task Assignment Junction Table
+model TaskAssignment {
+  id        String     @id @default(auto()) @map("_id") @db.ObjectId
+  taskId    String     @db.ObjectId
+  task      Task       @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  
+  // Can be assigned to student OR batch
+  studentId String?    @db.ObjectId
+  student   Student?   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  
+  batchId   String?    @db.ObjectId
+  batch     Batch?     @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  
+  // Status
+  status    TaskStatus @default(PENDING)
+  completedAt DateTime?
+  
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@index([taskId])
+  @@index([studentId])
+  @@index([batchId])
+  @@map("task_assignments")
+}
+
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  OVERDUE
+}
+
+// ======================
+// RESOURCE MANAGEMENT
+// ======================
+
+model Resource {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  title       String
+  description String?
+  
+  // File information
+  fileName    String
+  storedPath  String
+  fileSize    Int
+  mimeType    String
+  
+  // Visibility scope
+  visibilityType ResourceVisibility
+  program     Program?
+  
+  // Can be visible to specific batch
+  batchId     String?  @db.ObjectId
+  batch       Batch?   @relation(fields: [batchId], references: [id])
+  
+  uploadedAt  DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([batchId])
+  @@index([program])
+  @@map("resources")
+}
+
+enum ResourceVisibility {
+  BATCH
+  PROGRAM
+  ALL
+}
+
+// ======================
+// EMAIL TRACKING
+// ======================
+
+model EmailLog {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  recipient   String
+  subject     String
+  body        String
+  status      EmailStatus @default(PENDING)
+  error       String?
+  
+  sentAt      DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([status])
+  @@index([createdAt])
+  @@map("email_logs")
+}
+
+enum EmailStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+// ======================
+// AUDIT LOGGING
+// ======================
+
+model AuditLog {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  user      User     @relation(fields: [userId], references: [id])
+  
+  action    String   // e.g., "CREATE_STUDENT", "DELETE_DOCUMENT"
+  entity    String   // e.g., "Student", "Document"
+  entityId  String?  // ID of affected entity
+  details   String?  // JSON string of additional details
+  ipAddress String?
+  
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// Document access tracking
+model DocumentAccessLog {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  documentId String   @db.ObjectId
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  
+  accessedBy String   // User ID or email
+  action     String   // "VIEW", "DOWNLOAD"
+  ipAddress  String?
+  
+  createdAt  DateTime @default(now())
+
+  @@index([documentId])
+  @@index([createdAt])
+  @@map("document_access_logs")
+}
