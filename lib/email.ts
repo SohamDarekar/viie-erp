@@ -90,7 +90,7 @@ export function getTaskAssignedTemplate(studentName: string, taskTitle: string, 
     html: `
       <h2>Hello ${studentName},</h2>
       <p>A new task has been assigned to you: <strong>${taskTitle}</strong></p>
-      ${dueDate ? `<p>Due date: ${dueDate.toLocaleDateString()}</p>` : ''}
+      ${dueDate ? `<p>Due date: ${dueDate.toLocaleDateString('en-GB')}</p>` : ''}
       <p>Please log in to your account to view task details.</p>
       <p>Best regards,<br/>VIIE ERP Team</p>
     `,

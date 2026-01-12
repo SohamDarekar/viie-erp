@@ -340,3 +340,35 @@ model DocumentAccessLog {
   @@index([createdAt])
   @@map("document_access_logs")
 }
+
+// ======================
+// EVENT MANAGEMENT
+// ======================
+
+model Event {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  description String
+  eventDate   DateTime
+  eventTime   String // Store as string (e.g., "12:00")
+  venue       String
+  
+  // Banner image
+  banner      String? // File path or auto-generated based on name
+  
+  // Registration
+  registrationLink String?
+  
+  // Resources (file paths)
+  resources String[] @default([]) // Array of file paths
+  
+  // Batch assignment - store array of batch IDs
+  batchIds String[] @db.ObjectId @default([])
+  
+  // Metadata
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([eventDate])
+  @@map("events")
+}

@@ -23,6 +23,9 @@ export default function Header() {
             <Link href="/dashboard" className="text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 font-medium transition-colors">
               Home
             </Link>
+            <Link href="/events" className="text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 font-medium transition-colors">
+              Events
+            </Link>
             
             <ThemeToggle />
             

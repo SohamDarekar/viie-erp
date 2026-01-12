@@ -44,6 +44,27 @@
   .input:focus {
     @apply shadow-lg shadow-primary-500/10 dark:shadow-primary-500/20;
   }
+
+  /* Force DD/MM/YYYY format for date inputs */
+  input[type="date"] {
+    position: relative;
+  }
+  
+  input[type="date"]::-webkit-datetime-edit-fields-wrapper {
+    display: flex;
+  }
+  
+  input[type="date"]::-webkit-datetime-edit-day-field {
+    order: 1;
+  }
+  
+  input[type="date"]::-webkit-datetime-edit-month-field {
+    order: 2;
+  }
+  
+  input[type="date"]::-webkit-datetime-edit-year-field {
+    order: 3;
+  }
   
   /* Cards */
   .card {

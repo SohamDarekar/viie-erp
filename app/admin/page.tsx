@@ -35,11 +35,25 @@ interface Batch {
   }
 }
 
+interface Event {
+  id: string
+  name: string
+  description: string
+  eventDate: string
+  eventTime: string
+  venue: string
+  banner?: string
+  registrationLink?: string
+  resources: string[]
+  batchIds: string[]
+}
+
 export default function AdminDashboard() {
   const router = useRouter()
-  const [activeTab, setActiveTab] = useState<'overview' | 'students' | 'batches' | 'email'>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'students' | 'batches' | 'email' | 'events'>('overview')
   const [batches, setBatches] = useState<Batch[]>([])
   const [students, setStudents] = useState<Student[]>([])
+  const [events, setEvents] = useState<Event[]>([])
   const [currentUser, setCurrentUser] = useState<{email: string, role: string} | null>(null)
   const [stats, setStats] = useState({
     totalStudents: 0,
@@ -53,6 +67,22 @@ export default function AdminDashboard() {
   
   const [selectedStudent, setSelectedStudent] = useState<string>('')
   const [selectedBatchForAssign, setSelectedBatchForAssign] = useState<string>('')
+  
+  // Event form state
+  const [eventForm, setEventForm] = useState({
+    name: '',
+    description: '',
+    eventDate: '',
+    eventTime: '',
+    venue: '',
+    banner: '',
+    registrationLink: '',
+    batchIds: [] as string[],
+  })
+  const [bannerFile, setBannerFile] = useState<File | null>(null)
+  const [bannerPreview, setBannerPreview] = useState<string>('')
+  const [editingEvent, setEditingEvent] = useState<Event | null>(null)
+  const [showEventDeleteConfirm, setShowEventDeleteConfirm] = useState<string | null>(null)
   
   const [batchForm, setBatchForm] = useState({
     program: 'BS' as 'BS' | 'BBA',
@@ -119,14 +149,16 @@ export default function AdminDashboard() {
   const loadData = async () => {
     try {
       setDataLoading(true)
-      console.log('Loading batches and students...')
-      const [batchRes, studentRes] = await Promise.all([
+      console.log('Loading batches, students, and events...')
+      const [batchRes, studentRes, eventRes] = await Promise.all([
         fetch('/api/admin/batches'),
         fetch('/api/admin/students?limit=10000'), // Fetch all students
+        fetch('/api/admin/events'),
       ])
       
       console.log('Batch response status:', batchRes.status)
       console.log('Student response status:', studentRes.status)
+      console.log('Event response status:', eventRes.status)
       
       if (!batchRes.ok) {
         const errorData = await batchRes.json().catch(() => ({ error: 'Failed to parse error' }))
@@ -141,12 +173,19 @@ export default function AdminDashboard() {
         setError(`Failed to load students: ${errorData.error || 'Unknown error'}`)
         return
       }
+
+      if (!eventRes.ok && eventRes.status !== 401) {
+        const errorData = await eventRes.json().catch(() => ({ error: 'Failed to parse error' }))
+        console.error('Failed to load events:', errorData)
+      }
       
       const batchData = await batchRes.json()
       const studentData = await studentRes.json()
+      const eventData = eventRes.ok ? await eventRes.json() : { events: [] }
       
       console.log('Loaded batch data:', batchData)
       console.log('Loaded student data:', studentData)
+      console.log('Loaded event data:', eventData)
       
       const batchList = batchData.batches || []
       console.log('Batch list:', batchList)
@@ -154,6 +193,7 @@ export default function AdminDashboard() {
       
       setBatches(batchList)
       setStudents(studentData.students || [])
+      setEvents(eventData.events || [])
       
       setStats({
         totalStudents: studentData.pagination?.total || 0,
@@ -413,6 +453,194 @@ export default function AdminDashboard() {
     router.push('/admin/login')
   }
 
+  // Event handlers
+  const handleCreateEvent = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    setError('')
+    setSuccess('')
+
+    try {
+      const res = await fetch('/api/admin/events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...eventForm,
+          banner: bannerPreview || undefined
+        }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        setError(data.error || 'Failed to create event')
+        return
+      }
+
+      setSuccess('Event created successfully!')
+      setEventForm({
+        name: '',
+        description: '',
+        eventDate: '',
+        eventTime: '',
+        venue: '',
+        banner: '',
+        registrationLink: '',
+        batchIds: [],
+      })
+      setBannerFile(null)
+      setBannerPreview('')
+      await loadData()
+    } catch (err) {
+      setError('An error occurred')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleUpdateEvent = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editingEvent) return
+
+    setLoading(true)
+    setError('')
+    setSuccess('')
+
+    try {
+      const res = await fetch(`/api/admin/events/${editingEvent.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...eventForm,
+          banner: bannerPreview || eventForm.banner || undefined
+        }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        setError(data.error || 'Failed to update event')
+        return
+      }
+
+      setSuccess('Event updated successfully!')
+      setEditingEvent(null)
+      setEventForm({
+        name: '',
+        description: '',
+        eventDate: '',
+        eventTime: '',
+        venue: '',
+        banner: '',
+        registrationLink: '',
+        batchIds: [],
+      })
+      setBannerFile(null)
+      setBannerPreview('')
+      await loadData()
+    } catch (err) {
+      setError('An error occurred')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleDeleteEvent = async (eventId: string) => {
+    setLoading(true)
+    setError('')
+    setSuccess('')
+
+    try {
+      const res = await fetch(`/api/admin/events/${eventId}`, {
+        method: 'DELETE',
+      })
+
+      if (!res.ok) {
+        setError('Failed to delete event')
+        return
+      }
+
+      setSuccess('Event deleted successfully!')
+      setShowEventDeleteConfirm(null)
+      await loadData()
+    } catch (err) {
+      setError('An error occurred')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleEditEvent = (event: Event) => {
+    setEditingEvent(event)
+    setEventForm({
+      name: event.name,
+      description: event.description,
+      eventDate: event.eventDate.split('T')[0],
+      eventTime: event.eventTime,
+      venue: event.venue,
+      banner: event.banner || '',
+      registrationLink: event.registrationLink || '',
+      batchIds: event.batchIds,
+    })
+    setBannerFile(null)
+    setBannerPreview(event.banner || '')
+  }
+
+  const cancelEditEvent = () => {
+    setEditingEvent(null)
+    setEventForm({
+      name: '',
+      description: '',
+      eventDate: '',
+      eventTime: '',
+      venue: '',
+      banner: '',
+      registrationLink: '',
+      batchIds: [],
+    })
+    setBannerFile(null)
+    setBannerPreview('')
+  }
+
+  const handleBannerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        setError('Please select an image file')
+        return
+      }
+      
+      // Check image dimensions
+      const img = new Image()
+      const reader = new FileReader()
+      
+      reader.onload = (event) => {
+        img.onload = () => {
+          if (img.width !== 600 || img.height !== 600) {
+            setError('Image must be exactly 600x600 pixels')
+            e.target.value = ''
+            return
+          }
+          setBannerFile(file)
+          setBannerPreview(event.target?.result as string)
+          setError('')
+        }
+        img.src = event.target?.result as string
+      }
+      
+      reader.readAsDataURL(file)
+    }
+  }
+
+  const toggleBatchSelection = (batchId: string) => {
+    setEventForm(prev => ({
+      ...prev,
+      batchIds: prev.batchIds.includes(batchId)
+        ? prev.batchIds.filter(id => id !== batchId)
+        : [...prev.batchIds, batchId]
+    }))
+  }
+
   // Filter and paginate students
   const filteredStudents = students.filter((student) => {
     if (!studentSearch) return true
@@ -490,6 +718,7 @@ export default function AdminDashboard() {
               { id: 'overview', label: 'Overview', icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' },
               { id: 'students', label: 'Students', icon: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z' },
               { id: 'batches', label: 'Batch Assignment', icon: 'M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10' },
+              { id: 'events', label: 'Events', icon: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z' },
               { id: 'email', label: 'Send Email', icon: 'M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z' },
             ].map((tab) => (
               <button
@@ -1101,7 +1330,340 @@ export default function AdminDashboard() {
             </div>
           </div>
         )}
+
+        {/* Events Tab */}
+        {activeTab === 'events' && (
+          <div className="animate-fade-in">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Event Form */}
+              <div className="card">
+                <div className="card-header">
+                  <h2 className="card-title">
+                    {editingEvent ? 'Edit Event' : 'Create New Event'}
+                  </h2>
+                </div>
+                <form onSubmit={editingEvent ? handleUpdateEvent : handleCreateEvent} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                      Event Name *
+                    </label>
+                    <input
+                      type="text"
+                      className="input"
+                      placeholder="e.g., EduFair"
+                      value={eventForm.name}
+                      onChange={(e) => setEventForm({ ...eventForm, name: e.target.value })}
+                      required
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 mb-2">
+                        Event Date *
+                      </label>
+                      <input
+                        type="date"
+                        className="input"
+                        value={eventForm.eventDate}
+                        onChange={(e) => setEventForm({ ...eventForm, eventDate: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 mb-2">
+                        Event Time *
+                      </label>
+                      <input
+                        type="time"
+                        className="input"
+                        value={eventForm.eventTime}
+                        onChange={(e) => setEventForm({ ...eventForm, eventTime: e.target.value })}
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                      Event Venue *
+                    </label>
+                    <input
+                      type="text"
+                      className="input"
+                      placeholder="e.g., VIT"
+                      value={eventForm.venue}
+                      onChange={(e) => setEventForm({ ...eventForm, venue: e.target.value })}
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                      Event Description *
+                    </label>
+                    <textarea
+                      className="input"
+                      rows={4}
+                      placeholder="Join world leaders to view the event"
+                      value={eventForm.description}
+                      onChange={(e) => setEventForm({ ...eventForm, description: e.target.value })}
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                      Banner Image (Optional)
+                    </label>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="input"
+                      onChange={handleBannerChange}
+                    />
+                    <p className="text-xs text-slate-500 mt-1">
+                      ⚠️ Please use only 600×600 px images.
+                    </p>
+                    {bannerPreview && (
+                      <div className="mt-3">
+                        <img 
+                          src={bannerPreview} 
+                          alt="Banner preview" 
+                          className="w-32 h-32 object-cover rounded-lg border-2 border-slate-300"
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                      Registration Link
+                    </label>
+                    <input
+                      type="url"
+                      className="input"
+                      placeholder="https://example.com/register"
+                      value={eventForm.registrationLink}
+                      onChange={(e) => setEventForm({ ...eventForm, registrationLink: e.target.value })}
+                    />
+                  </div>
+
+                  {/* Multi-Select Batch Dropdown */}
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                      Select Batches *
+                    </label>
+                    <div className="border border-slate-300 rounded-lg p-3 bg-white max-h-48 overflow-y-auto">
+                      {batches.length === 0 ? (
+                        <p className="text-slate-500 text-sm">No batches available</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {batches.map((batch) => (
+                            <label
+                              key={batch.id}
+                              className="flex items-center p-2 hover:bg-slate-50 rounded cursor-pointer transition-colors"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={eventForm.batchIds.includes(batch.id)}
+                                onChange={() => toggleBatchSelection(batch.id)}
+                                className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+                              />
+                              <span className="ml-3 text-sm text-slate-700 font-medium">
+                                {batch.name} ({batch.program}) - {batch._count?.students || 0} students
+                              </span>
+                            </label>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-500 mt-1">
+                      {eventForm.batchIds.length} batch{eventForm.batchIds.length !== 1 ? 'es' : ''} selected
+                    </p>
+                  </div>
+
+                  <div className="flex gap-3 pt-2">
+                    {editingEvent && (
+                      <button
+                        type="button"
+                        onClick={cancelEditEvent}
+                        className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 font-medium transition-colors"
+                        disabled={loading}
+                      >
+                        Cancel
+                      </button>
+                    )}
+                    <button
+                      type="submit"
+                      disabled={loading || eventForm.batchIds.length === 0}
+                      className="flex-1 btn btn-primary"
+                    >
+                      {loading ? (
+                        <span className="flex items-center justify-center">
+                          <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          {editingEvent ? 'Updating...' : 'Creating...'}
+                        </span>
+                      ) : (
+                        <>
+                          <svg className="w-5 h-5 mr-2 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                          {editingEvent ? 'Update Event' : 'Create Event'}
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              </div>
+
+              {/* Events List */}
+              <div className="card">
+                <div className="card-header">
+                  <h2 className="card-title">All Events</h2>
+                  <span className="text-sm text-slate-600">
+                    {events.length} event{events.length !== 1 ? 's' : ''}
+                  </span>
+                </div>
+                {events.length === 0 ? (
+                  <div className="text-center py-12">
+                    <svg className="w-16 h-16 mx-auto text-slate-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <p className="text-slate-500 font-medium">No events found</p>
+                    <p className="text-slate-400 text-sm">Create your first event to get started</p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-slate-200">
+                    {events.map((event) => {
+                      const eventDate = new Date(event.eventDate)
+                      const isPast = eventDate < new Date()
+                      const batchNames = batches
+                        .filter(b => event.batchIds.includes(b.id))
+                        .map(b => b.name)
+                        .join(', ')
+                      
+                      return (
+                        <div key={event.id} className="p-4 hover:bg-slate-50 transition-colors">
+                          <div className="flex gap-4">
+                            {/* Banner thumbnail */}
+                            {event.banner && (
+                              <div className="flex-shrink-0">
+                                <img 
+                                  src={event.banner} 
+                                  alt={event.name}
+                                  className="w-20 h-20 object-cover rounded-lg border-2 border-slate-200"
+                                />
+                              </div>
+                            )}
+                            
+                            <div className="flex-1">
+                              <div className="flex justify-between items-start mb-2">
+                                <div className="flex-1">
+                                  <h3 className="font-bold text-slate-900 text-lg">{event.name}</h3>
+                                  <p className="text-sm text-slate-600 mt-1">{event.description}</p>
+                                </div>
+                                <span className={`badge ${isPast ? 'badge-neutral' : 'badge-success'} ml-2 flex-shrink-0`}>
+                                  {isPast ? 'Past' : 'Upcoming'}
+                                </span>
+                              </div>
+                          
+                          <div className="grid grid-cols-2 gap-2 text-sm text-slate-600 mb-2">
+                            <div className="flex items-center">
+                              <svg className="w-4 h-4 mr-1.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                              </svg>
+                              {eventDate.toLocaleDateString('en-GB')}
+                            </div>
+                            <div className="flex items-center">
+                              <svg className="w-4 h-4 mr-1.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              {event.eventTime}
+                            </div>
+                            <div className="flex items-center col-span-2">
+                              <svg className="w-4 h-4 mr-1.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                              </svg>
+                              {event.venue}
+                            </div>
+                          </div>
+
+                          <div className="text-xs text-slate-500 mb-3">
+                            <span className="font-semibold">Batches:</span> {batchNames || 'None'}
+                          </div>
+
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => handleEditEvent(event)}
+                              className="inline-flex items-center px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm hover:shadow-md text-sm font-medium"
+                            >
+                              <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                              </svg>
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => setShowEventDeleteConfirm(event.id)}
+                              className="inline-flex items-center px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors shadow-sm hover:shadow-md text-sm font-medium"
+                            >
+                              <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                              Delete
+                            </button>
+                          </div>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </main>
+
+      {/* Event Delete Confirmation Modal */}
+      {showEventDeleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+            <div className="text-center">
+              <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-red-100 mb-4">
+                <svg className="h-8 w-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold text-slate-900 mb-2">Delete Event</h3>
+              <p className="text-slate-600 mb-6">
+                Are you sure you want to delete this event? This action cannot be undone.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowEventDeleteConfirm(null)}
+                  className="flex-1 px-4 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 font-medium transition-colors"
+                  disabled={loading}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => handleDeleteEvent(showEventDeleteConfirm)}
+                  className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium transition-colors shadow-sm hover:shadow-md"
+                  disabled={loading}
+                >
+                  {loading ? 'Deleting...' : 'Delete'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Edit Student Modal */}
       {showEditModal && editingStudent && (
