@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - JWT_SECRET=${JWT_SECRET}
+      - EMAIL_HOST=${EMAIL_HOST}
+      - EMAIL_PORT=${EMAIL_PORT}
+      - EMAIL_USER=${EMAIL_USER}
+      - EMAIL_PASS=${EMAIL_PASS}
+      - EMAIL_FROM=${EMAIL_FROM}
+      - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
+    volumes:
+      - ./storage/uploads:/app/storage/uploads
+    restart: unless-stopped
+    depends_on:
+      - mongodb
+    networks:
+      - viie-network
+
+  mongodb:
+    image: mongo:7.0
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_USERNAME:-admin}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_PASSWORD:-password}
+      - MONGO_INITDB_DATABASE=${MONGO_DATABASE:-viie_erp}
+    volumes:
+      - mongodb_data:/data/db
+    restart: unless-stopped
+    networks:
+      - viie-network
+
+volumes:
+  mongodb_data:
+
+networks:
+  viie-network:
+    driver: bridge

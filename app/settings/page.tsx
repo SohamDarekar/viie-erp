@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { FaArrowLeft, FaUser, FaEnvelope, FaLock, FaSignOutAlt } from 'react-icons/fa'
@@ -29,11 +29,7 @@ export default function SettingsPage() {
     confirmPassword: '',
   })
 
-  useEffect(() => {
-    loadUser()
-  }, [])
-
-  const loadUser = async () => {
+  const loadUser = useCallback(async () => {
     try {
       const res = await fetch('/api/student/profile')
       if (!res.ok) {
@@ -56,7 +52,11 @@ export default function SettingsPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [router])
+
+  useEffect(() => {
+    loadUser()
+  }, [loadUser])
 
   const handleEmailUpdate = async (e: React.FormEvent) => {
     e.preventDefault()

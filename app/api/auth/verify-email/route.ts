@@ -7,8 +7,15 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url)
     const token = searchParams.get('token')
 
+    // Get the base URL from the request headers to support both dev and prod
+    const protocol = req.headers.get('x-forwarded-proto') || (req.headers.get('host')?.includes('localhost') ? 'http' : 'https')
+    const host = req.headers.get('host')
+    const baseUrl = host ? `${protocol}://${host}` : (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000')
+    
+    console.log(`[Verify Email] Protocol: ${protocol}, Host: ${host}, BaseURL: ${baseUrl}`)
+
     if (!token) {
-      return NextResponse.redirect(new URL('/login?error=invalid_token', req.url))
+      return NextResponse.redirect(`${baseUrl}/login?error=invalid_token`)
     }
 
     // Find user with this verification token
@@ -20,7 +27,7 @@ export async function GET(req: NextRequest) {
     })
 
     if (!user) {
-      return NextResponse.redirect(new URL('/login?error=invalid_or_expired_token', req.url))
+      return NextResponse.redirect(`${baseUrl}/login?error=invalid_or_expired_token`)
     }
 
     // Mark email as verified and clear the token
@@ -42,9 +49,12 @@ export async function GET(req: NextRequest) {
     })
 
     // Redirect to onboarding page
-    return NextResponse.redirect(new URL('/onboarding?verified=true', req.url))
+    return NextResponse.redirect(`${baseUrl}/onboarding?verified=true`)
   } catch (error) {
     console.error('Email verification error:', error)
-    return NextResponse.redirect(new URL('/login?error=verification_failed', req.url))
+    const protocol = req.headers.get('x-forwarded-proto') || (req.headers.get('host')?.includes('localhost') ? 'http' : 'https')
+    const host = req.headers.get('host')
+    const baseUrl = host ? `${protocol}://${host}` : (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000')
+    return NextResponse.redirect(`${baseUrl}/login?error=verification_failed`)
   }
 }

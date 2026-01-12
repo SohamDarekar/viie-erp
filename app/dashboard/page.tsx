@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Header from '@/components/Header'
@@ -16,11 +16,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [user, setUser] = useState<User | null>(null)
 
-  useEffect(() => {
-    loadUser()
-  }, [])
-
-  const loadUser = async () => {
+  const loadUser = useCallback(async () => {
     try {
       const res = await fetch('/api/student/profile')
       if (!res.ok) {
@@ -41,7 +37,11 @@ export default function DashboardPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [router])
+
+  useEffect(() => {
+    loadUser()
+  }, [loadUser])
 
   const handleLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' })

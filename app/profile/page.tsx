@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Card, Button, Input, Alert, LoadingSpinner, Header } from '@/components'
@@ -83,11 +83,7 @@ export default function ProfilePage() {
     batchName: '',
   })
 
-  useEffect(() => {
-    loadProfile()
-  }, [])
-
-  const loadProfile = async () => {
+  const loadProfile = useCallback(async () => {
     try {
       const res = await fetch('/api/student/profile')
       if (!res.ok) {
@@ -126,7 +122,11 @@ export default function ProfilePage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [router])
+
+  useEffect(() => {
+    loadProfile()
+  }, [loadProfile])
 
   const handleSave = async () => {
     setSaving(true)

@@ -59,7 +59,11 @@ export async function POST(req: NextRequest) {
     })
 
     // Send verification email
-    const verificationUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/auth/verify-email?token=${verificationToken}`
+    // Get the base URL from the request headers to support both dev and prod
+    const protocol = req.headers.get('x-forwarded-proto') || (req.headers.get('host')?.includes('localhost') ? 'http' : 'https')
+    const host = req.headers.get('host')
+    const baseUrl = host ? `${protocol}://${host}` : (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000')
+    const verificationUrl = `${baseUrl}/api/auth/verify-email?token=${verificationToken}`
     
     try {
       const emailTemplate = getEmailVerificationTemplate(email, verificationUrl)
