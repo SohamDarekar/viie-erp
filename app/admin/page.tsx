@@ -89,6 +89,10 @@ export default function AdminDashboard() {
   
   // Search state for all students
   const [studentSearch, setStudentSearch] = useState('')
+  
+  // Pagination state for all students
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(10)
 
   useEffect(() => {
     loadData()
@@ -118,7 +122,7 @@ export default function AdminDashboard() {
       console.log('Loading batches and students...')
       const [batchRes, studentRes] = await Promise.all([
         fetch('/api/admin/batches'),
-        fetch('/api/admin/students'),
+        fetch('/api/admin/students?limit=10000'), // Fetch all students
       ])
       
       console.log('Batch response status:', batchRes.status)
@@ -409,6 +413,28 @@ export default function AdminDashboard() {
     router.push('/admin/login')
   }
 
+  // Filter and paginate students
+  const filteredStudents = students.filter((student) => {
+    if (!studentSearch) return true
+    const search = studentSearch.toLowerCase()
+    return (
+      student.firstName.toLowerCase().includes(search) ||
+      student.lastName.toLowerCase().includes(search) ||
+      student.user.username.toLowerCase().includes(search) ||
+      student.user.email.toLowerCase().includes(search)
+    )
+  })
+
+  const totalPages = Math.ceil(filteredStudents.length / itemsPerPage)
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const endIndex = startIndex + itemsPerPage
+  const paginatedStudents = filteredStudents.slice(startIndex, endIndex)
+
+  // Reset to page 1 when search changes or items per page changes
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [studentSearch, itemsPerPage])
+
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Header */}
@@ -687,6 +713,28 @@ export default function AdminDashboard() {
                 </div>
               </div>
               
+              {/* Items Per Page Selector */}
+              <div className="px-6 py-3 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <label className="text-sm font-semibold text-slate-700">Show:</label>
+                  <select
+                    value={itemsPerPage}
+                    onChange={(e) => setItemsPerPage(Number(e.target.value))}
+                    className="input py-1.5 px-3 w-24"
+                  >
+                    <option value={10}>10</option>
+                    <option value={20}>20</option>
+                    <option value={30}>30</option>
+                    <option value={40}>40</option>
+                    <option value={50}>50</option>
+                  </select>
+                  <span className="text-sm text-slate-600">entries per page</span>
+                </div>
+                <div className="text-sm text-slate-600">
+                  Showing {filteredStudents.length === 0 ? 0 : startIndex + 1} to {Math.min(endIndex, filteredStudents.length)} of {filteredStudents.length} {studentSearch ? 'filtered' : 'total'} students
+                </div>
+              </div>
+
               {students.length === 0 ? (
                 <div className="text-center py-12">
                   <svg className="w-16 h-16 mx-auto text-slate-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -694,32 +742,29 @@ export default function AdminDashboard() {
                   </svg>
                   <p className="text-slate-500 font-medium">No students found</p>
                 </div>
+              ) : filteredStudents.length === 0 ? (
+                <div className="text-center py-12">
+                  <svg className="w-16 h-16 mx-auto text-slate-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                  <p className="text-slate-500 font-medium">No students found matching "{studentSearch}"</p>
+                </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-slate-200">
-                    <thead className="bg-slate-50">
-                      <tr>
-                        <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Name</th>
-                        <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Username</th>
-                        <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Email</th>
-                        <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Program</th>
-                        <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Batch</th>
-                        <th className="px-6 py-4 text-right text-xs font-bold text-slate-700 uppercase tracking-wider">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-slate-200">
-                      {students
-                        .filter((student) => {
-                          if (!studentSearch) return true
-                          const search = studentSearch.toLowerCase()
-                          return (
-                            student.firstName.toLowerCase().includes(search) ||
-                            student.lastName.toLowerCase().includes(search) ||
-                            student.user.username.toLowerCase().includes(search) ||
-                            student.user.email.toLowerCase().includes(search)
-                          )
-                        })
-                        .map((student) => (
+                <>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-slate-200">
+                      <thead className="bg-slate-50">
+                        <tr>
+                          <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Name</th>
+                          <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Username</th>
+                          <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Email</th>
+                          <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Program</th>
+                          <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Batch</th>
+                          <th className="px-6 py-4 text-right text-xs font-bold text-slate-700 uppercase tracking-wider">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-slate-200">
+                        {paginatedStudents.map((student) => (
                         <tr key={student.id} className="hover:bg-slate-50 transition-colors">
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center">
@@ -786,10 +831,73 @@ export default function AdminDashboard() {
                             </div>
                           </td>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Pagination Controls */}
+                  {totalPages > 1 && (
+                    <div className="px-6 py-4 border-t border-slate-200 bg-slate-50">
+                      <div className="flex items-center justify-between">
+                        <button
+                          onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                          disabled={currentPage === 1}
+                          className="inline-flex items-center px-4 py-2 text-sm font-semibold rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                          </svg>
+                          Previous
+                        </button>
+
+                        <div className="flex items-center space-x-2">
+                          {Array.from({ length: totalPages }, (_, i) => i + 1)
+                            .filter(page => {
+                              // Show first page, last page, current page, and pages around current
+                              if (page === 1 || page === totalPages) return true
+                              if (Math.abs(page - currentPage) <= 1) return true
+                              return false
+                            })
+                            .map((page, index, array) => {
+                              // Add ellipsis if there's a gap
+                              const prevPage = array[index - 1]
+                              const showEllipsis = prevPage && page - prevPage > 1
+                              
+                              return (
+                                <div key={page} className="flex items-center space-x-2">
+                                  {showEllipsis && (
+                                    <span className="px-2 text-slate-500">...</span>
+                                  )}
+                                  <button
+                                    onClick={() => setCurrentPage(page)}
+                                    className={`px-3 py-1.5 text-sm font-semibold rounded-lg transition-colors ${
+                                      currentPage === page
+                                        ? 'bg-indigo-600 text-white shadow-md'
+                                        : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50'
+                                    }`}
+                                  >
+                                    {page}
+                                  </button>
+                                </div>
+                              )
+                            })}
+                        </div>
+
+                        <button
+                          onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                          disabled={currentPage === totalPages}
+                          className="inline-flex items-center px-4 py-2 text-sm font-semibold rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                          Next
+                          <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>
