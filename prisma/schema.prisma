@@ -78,9 +78,9 @@ model Student {
   program    Program
   intakeYear Int
 
-  // Batch Assignment
-  batchId String @db.ObjectId
-  batch   Batch  @relation(fields: [batchId], references: [id])
+  // Batch Assignment (optional - student can be unassigned)
+  batchId String? @db.ObjectId
+  batch   Batch?  @relation(fields: [batchId], references: [id])
 
   // Profile Status
   hasCompletedOnboarding Boolean @default(false)

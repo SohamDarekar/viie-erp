@@ -14,10 +14,10 @@ interface Student {
   gender?: string
   nationality?: string
   program: string
-  batch: {
+  batch?: {
     id: string
     name: string
-  }
+  } | null
   user: {
     id: string
     username: string
@@ -47,6 +47,7 @@ export default function AdminDashboard() {
     activeBatches: 0,
   })
   const [loading, setLoading] = useState(false)
+  const [dataLoading, setDataLoading] = useState(true)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   
@@ -79,6 +80,16 @@ export default function AdminDashboard() {
   const [showEditModal, setShowEditModal] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null)
 
+  // New state for batch students modal
+  const [showBatchStudentsModal, setShowBatchStudentsModal] = useState(false)
+  const [selectedBatchForView, setSelectedBatchForView] = useState<Batch | null>(null)
+  const [batchStudents, setBatchStudents] = useState<Student[]>([])
+  const [batchStudentsLoading, setBatchStudentsLoading] = useState(false)
+  const [batchStudentSearch, setBatchStudentSearch] = useState('')
+  
+  // Search state for all students
+  const [studentSearch, setStudentSearch] = useState('')
+
   useEffect(() => {
     loadData()
     loadCurrentUser()
@@ -103,20 +114,25 @@ export default function AdminDashboard() {
 
   const loadData = async () => {
     try {
+      setDataLoading(true)
+      console.log('Loading batches and students...')
       const [batchRes, studentRes] = await Promise.all([
         fetch('/api/admin/batches'),
         fetch('/api/admin/students'),
       ])
       
+      console.log('Batch response status:', batchRes.status)
+      console.log('Student response status:', studentRes.status)
+      
       if (!batchRes.ok) {
-        const errorData = await batchRes.json()
+        const errorData = await batchRes.json().catch(() => ({ error: 'Failed to parse error' }))
         console.error('Failed to load batches:', errorData)
         setError(`Failed to load batches: ${errorData.error || 'Unknown error'}`)
         return
       }
 
       if (!studentRes.ok) {
-        const errorData = await studentRes.json()
+        const errorData = await studentRes.json().catch(() => ({ error: 'Failed to parse error' }))
         console.error('Failed to load students:', errorData)
         setError(`Failed to load students: ${errorData.error || 'Unknown error'}`)
         return
@@ -125,10 +141,13 @@ export default function AdminDashboard() {
       const batchData = await batchRes.json()
       const studentData = await studentRes.json()
       
-      console.log('Loaded batches:', batchData)
-      console.log('Loaded students:', studentData)
+      console.log('Loaded batch data:', batchData)
+      console.log('Loaded student data:', studentData)
       
       const batchList = batchData.batches || []
+      console.log('Batch list:', batchList)
+      console.log('Number of batches:', batchList.length)
+      
       setBatches(batchList)
       setStudents(studentData.students || [])
       
@@ -137,9 +156,13 @@ export default function AdminDashboard() {
         totalBatches: batchData.total || 0,
         activeBatches: batchList.filter((b: Batch) => b.isActive).length,
       })
+      
+      console.log('Data loaded successfully!')
     } catch (error) {
       console.error('Failed to load data:', error)
       setError('Failed to load data. Please check console for details.')
+    } finally {
+      setDataLoading(false)
     }
   }
 
@@ -247,6 +270,10 @@ export default function AdminDashboard() {
   }
 
   const handleEditStudent = (student: Student) => {
+    console.log('Editing student:', student)
+    console.log('Available batches:', batches)
+    console.log('Student batch ID:', student.batch?.id)
+    
     setEditingStudent(student)
     setEditForm({
       firstName: student.firstName,
@@ -255,7 +282,7 @@ export default function AdminDashboard() {
       email: student.user.email,
       phone: student.phone || '',
       program: student.program as 'BS' | 'BBA',
-      batchId: student.batch.id,
+      batchId: student.batch?.id || '',
     })
     setShowEditModal(true)
     setError('')
@@ -314,6 +341,61 @@ export default function AdminDashboard() {
 
       setSuccess('Student deleted successfully!')
       setShowDeleteConfirm(null)
+      await loadData()
+    } catch (err) {
+      setError('An error occurred')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleViewBatchStudents = async (batch: Batch) => {
+    setSelectedBatchForView(batch)
+    setShowBatchStudentsModal(true)
+    setBatchStudentsLoading(true)
+    setBatchStudentSearch('')
+    
+    try {
+      const res = await fetch(`/api/admin/students?batchId=${batch.id}`)
+      if (!res.ok) {
+        throw new Error('Failed to load batch students')
+      }
+      const data = await res.json()
+      setBatchStudents(data.students || [])
+    } catch (error) {
+      console.error('Failed to load batch students:', error)
+      setError('Failed to load batch students')
+    } finally {
+      setBatchStudentsLoading(false)
+    }
+  }
+
+  const handleRemoveFromBatch = async (studentId: string) => {
+    if (!confirm('Are you sure you want to remove this student from the batch?')) {
+      return
+    }
+
+    setLoading(true)
+    setError('')
+    setSuccess('')
+
+    try {
+      const res = await fetch(`/api/admin/students/${studentId}/remove-batch`, {
+        method: 'POST',
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        setError(data.error || 'Failed to remove student from batch')
+        return
+      }
+
+      setSuccess('Student removed from batch successfully!')
+      // Reload batch students
+      if (selectedBatchForView) {
+        await handleViewBatchStudents(selectedBatchForView)
+      }
       await loadData()
     } catch (err) {
       setError('An error occurred')
@@ -531,6 +613,7 @@ export default function AdminDashboard() {
                         <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase">Program</th>
                         <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase">Students</th>
                         <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase">Status</th>
+                        <th className="px-6 py-4 text-right text-xs font-bold text-slate-700 uppercase">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-slate-200">
@@ -543,6 +626,18 @@ export default function AdminDashboard() {
                             <span className={`badge ${batch.isActive ? 'badge-success' : 'badge-neutral'}`}>
                               {batch.isActive ? 'Active' : 'Archived'}
                             </span>
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <button
+                              onClick={() => handleViewBatchStudents(batch)}
+                              className="inline-flex items-center px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors shadow-sm hover:shadow-md text-sm font-medium"
+                            >
+                              <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                              </svg>
+                              View Students
+                            </button>
                           </td>
                         </tr>
                       ))}
@@ -563,6 +658,35 @@ export default function AdminDashboard() {
                 <h2 className="card-title">All Students</h2>
                 <span className="text-sm text-slate-600">{students.length} total</span>
               </div>
+              
+              {/* Search Box */}
+              <div className="px-6 py-4 border-b border-slate-200 bg-slate-50">
+                <div className="relative max-w-md">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                  </div>
+                  <input
+                    type="text"
+                    className="input pl-10 w-full"
+                    placeholder="Search students by name, username, or email..."
+                    value={studentSearch}
+                    onChange={(e) => setStudentSearch(e.target.value)}
+                  />
+                  {studentSearch && (
+                    <button
+                      onClick={() => setStudentSearch('')}
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+              </div>
+              
               {students.length === 0 ? (
                 <div className="text-center py-12">
                   <svg className="w-16 h-16 mx-auto text-slate-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -584,7 +708,18 @@ export default function AdminDashboard() {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-slate-200">
-                      {students.map((student) => (
+                      {students
+                        .filter((student) => {
+                          if (!studentSearch) return true
+                          const search = studentSearch.toLowerCase()
+                          return (
+                            student.firstName.toLowerCase().includes(search) ||
+                            student.lastName.toLowerCase().includes(search) ||
+                            student.user.username.toLowerCase().includes(search) ||
+                            student.user.email.toLowerCase().includes(search)
+                          )
+                        })
+                        .map((student) => (
                         <tr key={student.id} className="hover:bg-slate-50 transition-colors">
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center">
@@ -620,7 +755,11 @@ export default function AdminDashboard() {
                             </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="badge badge-primary">{student.batch.name}</span>
+                            {student.batch ? (
+                              <span className="badge badge-primary">{student.batch.name}</span>
+                            ) : (
+                              <span className="badge badge-neutral">Unassigned</span>
+                            )}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                             <div className="flex justify-end gap-2">
@@ -668,36 +807,64 @@ export default function AdminDashboard() {
                   <label className="block text-sm font-semibold text-slate-700 mb-2">
                     Select Student
                   </label>
-                  <select
-                    className="input"
-                    value={selectedStudent}
-                    onChange={(e) => setSelectedStudent(e.target.value)}
-                  >
-                    <option value="">-- Choose a student --</option>
-                    {students.map((student) => (
-                      <option key={student.id} value={student.id}>
-                        {student.firstName} {student.lastName} ({student.user.email})
-                      </option>
-                    ))}
-                  </select>
+                  {dataLoading ? (
+                    <div className="input bg-slate-50 text-slate-500 flex items-center">
+                      <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Loading students...
+                    </div>
+                  ) : students.length === 0 ? (
+                    <div className="input bg-slate-50 text-slate-500">
+                      No students available
+                    </div>
+                  ) : (
+                    <select
+                      className="input"
+                      value={selectedStudent}
+                      onChange={(e) => setSelectedStudent(e.target.value)}
+                    >
+                      <option value="">-- Choose a student --</option>
+                      {students.map((student) => (
+                        <option key={student.id} value={student.id}>
+                          {student.firstName} {student.lastName} ({student.user.email})
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
 
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-2">
                     Select New Batch
                   </label>
-                  <select
-                    className="input"
-                    value={selectedBatchForAssign}
-                    onChange={(e) => setSelectedBatchForAssign(e.target.value)}
-                  >
-                    <option value="">-- Choose a batch --</option>
-                    {batches.map((batch) => (
-                      <option key={batch.id} value={batch.id}>
-                        {batch.name} ({batch.program}) - {batch._count?.students || 0} students {!batch.isActive && '(Archived)'}
-                      </option>
-                    ))}
-                  </select>
+                  {dataLoading ? (
+                    <div className="input bg-slate-50 text-slate-500 flex items-center">
+                      <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Loading batches...
+                    </div>
+                  ) : batches.length === 0 ? (
+                    <div className="input bg-slate-50 text-slate-500">
+                      No batches available - Create a batch first
+                    </div>
+                  ) : (
+                    <select
+                      className="input"
+                      value={selectedBatchForAssign}
+                      onChange={(e) => setSelectedBatchForAssign(e.target.value)}
+                    >
+                      <option value="">-- Choose a batch --</option>
+                      {batches.map((batch) => (
+                        <option key={batch.id} value={batch.id}>
+                          {batch.name} ({batch.program}) - {batch._count?.students || 0} students {!batch.isActive && '(Archived)'}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
 
                 <button
@@ -940,18 +1107,29 @@ export default function AdminDashboard() {
                 <label className="block text-sm font-semibold text-slate-700 mb-2">
                   Batch
                 </label>
-                <select
-                  className="input"
-                  value={editForm.batchId}
-                  onChange={(e) => setEditForm({ ...editForm, batchId: e.target.value })}
-                  required
-                >
-                  {batches.map((batch) => (
-                    <option key={batch.id} value={batch.id}>
-                      {batch.name} ({batch.program})
-                    </option>
-                  ))}
-                </select>
+                {batches.length === 0 ? (
+                  <div className="input bg-slate-50 text-slate-500 flex items-center">
+                    <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Loading batches...
+                  </div>
+                ) : (
+                  <select
+                    className="input"
+                    value={editForm.batchId}
+                    onChange={(e) => setEditForm({ ...editForm, batchId: e.target.value })}
+                    required
+                  >
+                    <option value="">-- Choose a batch --</option>
+                    {batches.map((batch) => (
+                      <option key={batch.id} value={batch.id}>
+                        {batch.name} ({batch.program}) - {batch._count?.students || 0} students
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
 
               <div className="flex gap-3 pt-4 border-t border-slate-200">
@@ -1009,6 +1187,163 @@ export default function AdminDashboard() {
                   {loading ? 'Deleting...' : 'Delete'}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Batch Students Modal */}
+      {showBatchStudentsModal && selectedBatchForView && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 rounded-t-2xl">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h3 className="text-2xl font-bold text-slate-800">
+                    {selectedBatchForView.name} Students
+                  </h3>
+                  <p className="text-slate-600 text-sm mt-1">
+                    {batchStudents.length} student{batchStudents.length !== 1 ? 's' : ''} in this batch
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowBatchStudentsModal(false)
+                    setSelectedBatchForView(null)
+                    setBatchStudents([])
+                    setBatchStudentSearch('')
+                  }}
+                  className="text-slate-400 hover:text-slate-600 transition-colors"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            {/* Search Box for Batch Students */}
+            <div className="px-6 py-4 border-b border-slate-200 bg-slate-50">
+              <div className="relative max-w-md">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
+                <input
+                  type="text"
+                  className="input pl-10 w-full"
+                  placeholder="Search students in this batch..."
+                  value={batchStudentSearch}
+                  onChange={(e) => setBatchStudentSearch(e.target.value)}
+                />
+                {batchStudentSearch && (
+                  <button
+                    onClick={() => setBatchStudentSearch('')}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6">
+              {batchStudentsLoading ? (
+                <div className="text-center py-12">
+                  <svg className="animate-spin h-12 w-12 mx-auto text-primary-600 mb-4" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <p className="text-slate-500 font-medium">Loading students...</p>
+                </div>
+              ) : batchStudents.length === 0 ? (
+                <div className="text-center py-12">
+                  <svg className="w-16 h-16 mx-auto text-slate-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                  </svg>
+                  <p className="text-slate-500 font-medium">No students in this batch</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-slate-200">
+                    <thead className="bg-slate-50 sticky top-0">
+                      <tr>
+                        <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Name</th>
+                        <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Username</th>
+                        <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Email</th>
+                        <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Program</th>
+                        <th className="px-6 py-4 text-right text-xs font-bold text-slate-700 uppercase tracking-wider">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-slate-200">
+                      {batchStudents
+                        .filter((student) => {
+                          if (!batchStudentSearch) return true
+                          const search = batchStudentSearch.toLowerCase()
+                          return (
+                            student.firstName.toLowerCase().includes(search) ||
+                            student.lastName.toLowerCase().includes(search) ||
+                            student.user.username.toLowerCase().includes(search) ||
+                            student.user.email.toLowerCase().includes(search)
+                          )
+                        })
+                        .map((student) => (
+                          <tr key={student.id} className="hover:bg-slate-50 transition-colors">
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="flex items-center">
+                                <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-md">
+                                  {student.firstName[0]}{student.lastName[0]}
+                                </div>
+                                <div className="ml-3">
+                                  <div className="font-semibold text-slate-900">
+                                    {student.firstName} {student.lastName}
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="flex items-center">
+                                <svg className="w-4 h-4 text-slate-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                </svg>
+                                <span className="text-slate-700 font-medium">@{student.user.username}</span>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="flex items-center">
+                                <svg className="w-4 h-4 text-slate-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                </svg>
+                                <span className="text-slate-600 text-sm">{student.user.email}</span>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className="inline-flex px-3 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                                {student.program}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                              <button
+                                onClick={() => handleRemoveFromBatch(student.id)}
+                                className="inline-flex items-center px-3 py-1.5 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors shadow-sm hover:shadow-md"
+                                disabled={loading}
+                                title="Remove from batch"
+                              >
+                                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                                Remove
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </div>
         </div>

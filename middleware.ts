@@ -26,6 +26,11 @@ export async function middleware(request: NextRequest) {
   const session = await getSessionFromRequest(request)
 
   if (!session) {
+    if (pathname.startsWith('/admin')) {
+      const loginUrl = new URL('/admin/login', request.url)
+      return NextResponse.redirect(loginUrl)
+    }
+    
     const loginUrl = new URL('/login', request.url)
     loginUrl.searchParams.set('from', pathname)
     return NextResponse.redirect(loginUrl)

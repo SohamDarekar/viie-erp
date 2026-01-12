@@ -160,7 +160,7 @@ export default function SettingsPage() {
                 </svg>
               </div>
               <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                Ledge
+                VIIE ERP
               </h1>
             </div>
             

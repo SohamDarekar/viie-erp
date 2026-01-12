@@ -8,7 +8,7 @@ const querySchema = z.object({
   page: z.string().nullable().optional().transform(val => parseInt(val || '1')),
   limit: z.string().nullable().optional().transform(val => parseInt(val || '20')),
   program: z.enum(['BS', 'BBA']).nullable().optional(),
-  isActive: z.string().nullable().optional().transform(val => val === 'true'),
+  isActive: z.string().nullable().optional().transform(val => val === null || val === undefined ? undefined : val === 'true'),
 })
 
 const createBatchSchema = z.object({
