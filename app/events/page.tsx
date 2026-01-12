@@ -33,10 +33,12 @@ export default function EventsPage() {
 
   useEffect(() => {
     loadEvents()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
     generateCalendar()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentDate, events])
 
   const loadEvents = async () => {

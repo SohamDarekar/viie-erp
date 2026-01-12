@@ -74,6 +74,36 @@ model Student {
   address    String?
   postalCode String?
 
+  // Education Information
+  // School (10th grade)
+  school            String?
+  schoolCountry     String?
+  schoolAddress     String?
+  schoolStartDate   DateTime?
+  schoolEndDate     DateTime?
+  schoolGrade       String? // Percentage
+  
+  // High School (12th grade)
+  highSchool          String?
+  highSchoolCountry   String?
+  highSchoolAddress   String?
+  highSchoolStartDate DateTime?
+  highSchoolEndDate   DateTime?
+  highSchoolGrade     String? // Percentage
+  
+  // Bachelor's Degree
+  bachelorsIn           String?
+  bachelorsFromInstitute String?
+  bachelorsCountry      String?
+  bachelorsAddress      String?
+  bachelorsStartDate    DateTime?
+  bachelorsEndDate      DateTime?
+  bachelorsGrade        String?
+  
+  // Test Scores
+  greTaken   Boolean? @default(false)
+  toeflTaken Boolean? @default(false)
+
   // Academic Information
   program    Program
   intakeYear Int
@@ -170,6 +200,8 @@ enum DocumentType {
   VISA
   I20
   TRANSCRIPT
+  MARKSHEET_10TH
+  MARKSHEET_12TH
   OTHER
 }
 

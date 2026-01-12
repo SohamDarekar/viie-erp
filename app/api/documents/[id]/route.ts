@@ -40,11 +40,14 @@ export async function GET(
     // Read file
     const fileBuffer = await readFile(document.storedPath)
 
+    // Check if the request wants to view in browser (default) or download
+    const shouldDownload = req.nextUrl.searchParams.get('download') === 'true'
+
     // Log access
     await logDocumentAccess(
       document.id,
       session.email,
-      'DOWNLOAD',
+      shouldDownload ? 'DOWNLOAD' : 'VIEW',
       req.headers.get('x-forwarded-for') || req.ip
     )
 
@@ -52,7 +55,9 @@ export async function GET(
     return new NextResponse(fileBuffer as unknown as BodyInit, {
       headers: {
         'Content-Type': document.mimeType,
-        'Content-Disposition': `attachment; filename="${document.fileName}"`,
+        'Content-Disposition': shouldDownload 
+          ? `attachment; filename="${document.fileName}"`
+          : `inline; filename="${document.fileName}"`,
         'Content-Length': document.fileSize.toString(),
       },
     })

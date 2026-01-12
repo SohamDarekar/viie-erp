@@ -5,7 +5,7 @@ import { requireAuth } from '@/lib/auth'
 import { saveFile, ensureUploadDir } from '@/lib/file'
 import { createAuditLog } from '@/lib/audit'
 
-const DOCUMENT_TYPES = ['PASSPORT', 'IELTS', 'VISA', 'I20', 'TRANSCRIPT', 'OTHER'] as const
+const DOCUMENT_TYPES = ['PASSPORT', 'IELTS', 'VISA', 'I20', 'TRANSCRIPT', 'MARKSHEET_10TH', 'MARKSHEET_12TH', 'OTHER'] as const
 
 export async function POST(req: NextRequest) {
   try {

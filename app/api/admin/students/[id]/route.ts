@@ -15,6 +15,41 @@ const updateStudentSchema = z.object({
   nationality: z.string().optional(),
   program: z.enum(['BS', 'BBA']).optional(),
   batchId: z.string().optional(),
+  // Additional profile fields
+  countryOfBirth: z.string().optional(),
+  nativeLanguage: z.string().optional(),
+  parentName: z.string().optional(),
+  parentPhone: z.string().optional(),
+  parentEmail: z.string().optional(),
+  passportNumber: z.string().optional(),
+  nameAsPerPassport: z.string().optional(),
+  passportIssueLocation: z.string().optional(),
+  passportIssueDate: z.string().optional(),
+  passportExpiryDate: z.string().optional(),
+  address: z.string().optional(),
+  postalCode: z.string().optional(),
+  // Education fields
+  school: z.string().optional(),
+  schoolCountry: z.string().optional(),
+  schoolAddress: z.string().optional(),
+  schoolStartDate: z.string().optional(),
+  schoolEndDate: z.string().optional(),
+  schoolGrade: z.string().optional(),
+  highSchool: z.string().optional(),
+  highSchoolCountry: z.string().optional(),
+  highSchoolAddress: z.string().optional(),
+  highSchoolStartDate: z.string().optional(),
+  highSchoolEndDate: z.string().optional(),
+  highSchoolGrade: z.string().optional(),
+  bachelorsIn: z.string().optional(),
+  bachelorsFromInstitute: z.string().optional(),
+  bachelorsCountry: z.string().optional(),
+  bachelorsAddress: z.string().optional(),
+  bachelorsStartDate: z.string().optional(),
+  bachelorsEndDate: z.string().optional(),
+  bachelorsGrade: z.string().optional(),
+  greTaken: z.boolean().optional(),
+  toeflTaken: z.boolean().optional(),
 })
 
 export async function GET(
@@ -97,6 +132,43 @@ export async function PUT(
     if (data.nationality) studentUpdate.nationality = data.nationality
     if (data.program) studentUpdate.program = data.program
     if (data.batchId) studentUpdate.batchId = data.batchId
+
+    // Additional profile fields
+    if (data.countryOfBirth) studentUpdate.countryOfBirth = data.countryOfBirth
+    if (data.nativeLanguage) studentUpdate.nativeLanguage = data.nativeLanguage
+    if (data.parentName) studentUpdate.parentName = data.parentName
+    if (data.parentPhone) studentUpdate.parentPhone = data.parentPhone
+    if (data.parentEmail) studentUpdate.parentEmail = data.parentEmail
+    if (data.passportNumber) studentUpdate.passportNumber = data.passportNumber
+    if (data.nameAsPerPassport) studentUpdate.nameAsPerPassport = data.nameAsPerPassport
+    if (data.passportIssueLocation) studentUpdate.passportIssueLocation = data.passportIssueLocation
+    if (data.passportIssueDate) studentUpdate.passportIssueDate = new Date(data.passportIssueDate)
+    if (data.passportExpiryDate) studentUpdate.passportExpiryDate = new Date(data.passportExpiryDate)
+    if (data.address) studentUpdate.address = data.address
+    if (data.postalCode) studentUpdate.postalCode = data.postalCode
+    
+    // Education fields
+    if (data.school) studentUpdate.school = data.school
+    if (data.schoolCountry) studentUpdate.schoolCountry = data.schoolCountry
+    if (data.schoolAddress) studentUpdate.schoolAddress = data.schoolAddress
+    if (data.schoolStartDate) studentUpdate.schoolStartDate = new Date(data.schoolStartDate)
+    if (data.schoolEndDate) studentUpdate.schoolEndDate = new Date(data.schoolEndDate)
+    if (data.schoolGrade) studentUpdate.schoolGrade = data.schoolGrade
+    if (data.highSchool) studentUpdate.highSchool = data.highSchool
+    if (data.highSchoolCountry) studentUpdate.highSchoolCountry = data.highSchoolCountry
+    if (data.highSchoolAddress) studentUpdate.highSchoolAddress = data.highSchoolAddress
+    if (data.highSchoolStartDate) studentUpdate.highSchoolStartDate = new Date(data.highSchoolStartDate)
+    if (data.highSchoolEndDate) studentUpdate.highSchoolEndDate = new Date(data.highSchoolEndDate)
+    if (data.highSchoolGrade) studentUpdate.highSchoolGrade = data.highSchoolGrade
+    if (data.bachelorsIn) studentUpdate.bachelorsIn = data.bachelorsIn
+    if (data.bachelorsFromInstitute) studentUpdate.bachelorsFromInstitute = data.bachelorsFromInstitute
+    if (data.bachelorsCountry) studentUpdate.bachelorsCountry = data.bachelorsCountry
+    if (data.bachelorsAddress) studentUpdate.bachelorsAddress = data.bachelorsAddress
+    if (data.bachelorsStartDate) studentUpdate.bachelorsStartDate = new Date(data.bachelorsStartDate)
+    if (data.bachelorsEndDate) studentUpdate.bachelorsEndDate = new Date(data.bachelorsEndDate)
+    if (data.bachelorsGrade) studentUpdate.bachelorsGrade = data.bachelorsGrade
+    if (data.greTaken !== undefined) studentUpdate.greTaken = data.greTaken
+    if (data.toeflTaken !== undefined) studentUpdate.toeflTaken = data.toeflTaken
 
     if (data.email) {
       userUpdate.email = data.email

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { FiCheck, FiX } from 'react-icons/fi'
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -238,14 +239,14 @@ export default function RegisterPage() {
                   />
                 </div>
                 {formData.confirmPassword && (
-                  <p className={`text-xs mt-1 ${
+                  <p className={`text-xs mt-1 flex items-center gap-1 ${
                     formData.password === formData.confirmPassword 
                       ? 'text-green-600 dark:text-green-400' 
                       : 'text-red-600 dark:text-red-400'
                   }`}>
                     {formData.password === formData.confirmPassword 
-                      ? '✓ Passwords match' 
-                      : '✗ Passwords do not match'}
+                      ? <><FiCheck /> Passwords match</> 
+                      : <><FiX /> Passwords do not match</>}
                   </p>
                 )}
               </div>

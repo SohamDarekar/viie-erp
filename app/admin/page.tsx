@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { BiSolidError } from 'react-icons/bi'
 
 interface Student {
   id: string
@@ -50,7 +51,7 @@ interface Event {
 
 export default function AdminDashboard() {
   const router = useRouter()
-  const [activeTab, setActiveTab] = useState<'overview' | 'students' | 'batches' | 'email' | 'events'>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'students' | 'batches' | 'email' | 'events' | 'forms'>('overview')
   const [batches, setBatches] = useState<Batch[]>([])
   const [students, setStudents] = useState<Student[]>([])
   const [events, setEvents] = useState<Event[]>([])
@@ -116,6 +117,16 @@ export default function AdminDashboard() {
   const [batchStudents, setBatchStudents] = useState<Student[]>([])
   const [batchStudentsLoading, setBatchStudentsLoading] = useState(false)
   const [batchStudentSearch, setBatchStudentSearch] = useState('')
+  
+  // State for student forms tab
+  const [studentProfiles, setStudentProfiles] = useState<any[]>([])
+  const [studentProfilesLoading, setStudentProfilesLoading] = useState(false)
+  const [studentProfileSearch, setStudentProfileSearch] = useState('')
+  const [selectedStudentProfile, setSelectedStudentProfile] = useState<any | null>(null)
+  const [showProfileModal, setShowProfileModal] = useState(false)
+  const [showProfileEditModal, setShowProfileEditModal] = useState(false)
+  const [profileEditForm, setProfileEditForm] = useState<any>({})
+  const [showDocDeleteWarning, setShowDocDeleteWarning] = useState<string | null>(null)
   
   // Search state for all students
   const [studentSearch, setStudentSearch] = useState('')
@@ -207,6 +218,145 @@ export default function AdminDashboard() {
       setError('Failed to load data. Please check console for details.')
     } finally {
       setDataLoading(false)
+    }
+  }
+
+  const loadStudentProfiles = async () => {
+    setStudentProfilesLoading(true)
+    try {
+      const res = await fetch('/api/admin/students/profiles?limit=1000')
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: 'Failed to parse error' }))
+        console.error('Failed to load student profiles:', errorData)
+        setError(`Failed to load student profiles: ${errorData.error || 'Unknown error'}`)
+        return
+      }
+      const data = await res.json()
+      setStudentProfiles(data.students || [])
+    } catch (error) {
+      console.error('Failed to load student profiles:', error)
+      setError('Failed to load student profiles')
+    } finally {
+      setStudentProfilesLoading(false)
+    }
+  }
+
+  const handleViewProfile = (student: any) => {
+    setSelectedStudentProfile(student)
+    setShowProfileModal(true)
+  }
+
+  const handleEditProfile = (student: any) => {
+    setSelectedStudentProfile(student)
+    setProfileEditForm({
+      firstName: student.firstName || '',
+      lastName: student.lastName || '',
+      email: student.email || '',
+      phone: student.phone || '',
+      dateOfBirth: student.dateOfBirth ? new Date(student.dateOfBirth).toISOString().split('T')[0] : '',
+      gender: student.gender || '',
+      nationality: student.nationality || '',
+      countryOfBirth: student.countryOfBirth || '',
+      nativeLanguage: student.nativeLanguage || '',
+      passportNumber: student.passportNumber || '',
+      nameAsPerPassport: student.nameAsPerPassport || '',
+      passportIssueLocation: student.passportIssueLocation || '',
+      passportIssueDate: student.passportIssueDate ? new Date(student.passportIssueDate).toISOString().split('T')[0] : '',
+      passportExpiryDate: student.passportExpiryDate ? new Date(student.passportExpiryDate).toISOString().split('T')[0] : '',
+      address: student.address || '',
+      postalCode: student.postalCode || '',
+      parentName: student.parentName || '',
+      parentPhone: student.parentPhone || '',
+      parentEmail: student.parentEmail || '',
+      school: student.school || '',
+      schoolCountry: student.schoolCountry || '',
+      schoolAddress: student.schoolAddress || '',
+      schoolStartDate: student.schoolStartDate ? new Date(student.schoolStartDate).toISOString().split('T')[0] : '',
+      schoolEndDate: student.schoolEndDate ? new Date(student.schoolEndDate).toISOString().split('T')[0] : '',
+      schoolGrade: student.schoolGrade || '',
+      highSchool: student.highSchool || '',
+      highSchoolCountry: student.highSchoolCountry || '',
+      highSchoolAddress: student.highSchoolAddress || '',
+      highSchoolStartDate: student.highSchoolStartDate ? new Date(student.highSchoolStartDate).toISOString().split('T')[0] : '',
+      highSchoolEndDate: student.highSchoolEndDate ? new Date(student.highSchoolEndDate).toISOString().split('T')[0] : '',
+      highSchoolGrade: student.highSchoolGrade || '',
+      bachelorsIn: student.bachelorsIn || '',
+      bachelorsFromInstitute: student.bachelorsFromInstitute || '',
+      bachelorsCountry: student.bachelorsCountry || '',
+      bachelorsAddress: student.bachelorsAddress || '',
+      bachelorsStartDate: student.bachelorsStartDate ? new Date(student.bachelorsStartDate).toISOString().split('T')[0] : '',
+      bachelorsEndDate: student.bachelorsEndDate ? new Date(student.bachelorsEndDate).toISOString().split('T')[0] : '',
+      bachelorsGrade: student.bachelorsGrade || '',
+      greTaken: student.greTaken || false,
+      toeflTaken: student.toeflTaken || false,
+    })
+    setShowProfileEditModal(true)
+  }
+
+  const handleUpdateProfile = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!selectedStudentProfile) return
+
+    setLoading(true)
+    setError('')
+    setSuccess('')
+
+    try {
+      const res = await fetch(`/api/admin/students/${selectedStudentProfile.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(profileEditForm),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        setError(data.error || 'Failed to update profile')
+        return
+      }
+
+      setSuccess('Profile updated successfully!')
+      setShowProfileEditModal(false)
+      setSelectedStudentProfile(null)
+      await loadStudentProfiles()
+    } catch (err) {
+      setError('An error occurred while updating profile')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleDeleteDocument = async (docId: string) => {
+    setLoading(true)
+    setError('')
+    setSuccess('')
+
+    try {
+      const res = await fetch(`/api/documents/${docId}`, {
+        method: 'DELETE',
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        setError(data.error || 'Failed to delete document')
+        return
+      }
+
+      setSuccess('Document deleted successfully!')
+      setShowDocDeleteWarning(null)
+      await loadStudentProfiles()
+      // Refresh the selected profile
+      if (selectedStudentProfile) {
+        const updatedProfile = studentProfiles.find(p => p.id === selectedStudentProfile.id)
+        if (updatedProfile) {
+          setSelectedStudentProfile(updatedProfile)
+        }
+      }
+    } catch (err) {
+      setError('An error occurred while deleting document')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -718,6 +868,7 @@ export default function AdminDashboard() {
               { id: 'overview', label: 'Overview', icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' },
               { id: 'students', label: 'Students', icon: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z' },
               { id: 'batches', label: 'Batch Assignment', icon: 'M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10' },
+              { id: 'forms', label: 'Student Forms', icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' },
               { id: 'events', label: 'Events', icon: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z' },
               { id: 'email', label: 'Send Email', icon: 'M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z' },
             ].map((tab) => (
@@ -727,6 +878,10 @@ export default function AdminDashboard() {
                   setActiveTab(tab.id as any)
                   setError('')
                   setSuccess('')
+                  // Load student profiles when forms tab is clicked
+                  if (tab.id === 'forms' && studentProfiles.length === 0) {
+                    loadStudentProfiles()
+                  }
                 }}
                 className={`py-4 px-1 border-b-2 font-semibold text-sm transition-colors flex items-center ${
                   activeTab === tab.id
@@ -1422,8 +1577,8 @@ export default function AdminDashboard() {
                       className="input"
                       onChange={handleBannerChange}
                     />
-                    <p className="text-xs text-slate-500 mt-1">
-                      ⚠️ Please use only 600×600 px images.
+                    <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
+                      <BiSolidError className="text-yellow-500" /> Please use only 600×600 px images.
                     </p>
                     {bannerPreview && (
                       <div className="mt-3">
@@ -2014,6 +2169,817 @@ export default function AdminDashboard() {
                   </table>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Student Forms Tab */}
+      {activeTab === 'forms' && (
+        <div className="animate-fade-in">
+          <div className="card">
+            <div className="card-header">
+              <h2 className="card-title">Student Forms & Documents</h2>
+              <p className="text-sm text-slate-600">
+                {studentProfiles.length} student{studentProfiles.length !== 1 ? 's' : ''} found
+              </p>
+            </div>
+
+            {/* Search Box */}
+            <div className="px-6 py-4 border-b border-slate-200 bg-slate-50">
+              <div className="relative max-w-md">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
+                <input
+                  type="text"
+                  className="input pl-10 w-full"
+                  placeholder="Search students..."
+                  value={studentProfileSearch}
+                  onChange={(e) => setStudentProfileSearch(e.target.value)}
+                />
+                {studentProfileSearch && (
+                  <button
+                    onClick={() => setStudentProfileSearch('')}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {studentProfilesLoading ? (
+              <div className="text-center py-12">
+                <svg className="animate-spin h-12 w-12 mx-auto text-primary-600 mb-4" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <p className="text-slate-500 font-medium">Loading student profiles...</p>
+              </div>
+            ) : studentProfiles.length === 0 ? (
+              <div className="text-center py-12">
+                <svg className="w-16 h-16 mx-auto text-slate-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <p className="text-slate-500 font-medium">No student profiles found</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-slate-200">
+                  <thead className="bg-slate-50">
+                    <tr>
+                      <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase">Student</th>
+                      <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase">Email</th>
+                      <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase">Program</th>
+                      <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase">Batch</th>
+                      <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase">Documents</th>
+                      <th className="px-6 py-4 text-right text-xs font-bold text-slate-700 uppercase">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-slate-200">
+                    {studentProfiles
+                      .filter((student) => {
+                        if (!studentProfileSearch) return true
+                        const search = studentProfileSearch.toLowerCase()
+                        return (
+                          student.firstName?.toLowerCase().includes(search) ||
+                          student.lastName?.toLowerCase().includes(search) ||
+                          student.user?.email?.toLowerCase().includes(search)
+                        )
+                      })
+                      .map((student) => (
+                        <tr key={student.id} className="hover:bg-slate-50">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center">
+                              <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-md">
+                                {student.firstName?.[0]}{student.lastName?.[0]}
+                              </div>
+                              <div className="ml-3">
+                                <div className="font-semibold text-slate-900">
+                                  {student.firstName} {student.lastName}
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-slate-600 text-sm">
+                            {student.user?.email}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className="inline-flex px-3 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                              {student.program}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            {student.batch ? (
+                              <span className="badge badge-primary">{student.batch.name}</span>
+                            ) : (
+                              <span className="badge badge-neutral">Unassigned</span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className="inline-flex px-3 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800">
+                              {student.documents?.length || 0} docs
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <div className="flex justify-end gap-2">
+                              <button
+                                onClick={() => handleViewProfile(student)}
+                                className="inline-flex items-center px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors shadow-sm hover:shadow-md"
+                              >
+                                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                </svg>
+                                View
+                              </button>
+                              <button
+                                onClick={() => handleEditProfile(student)}
+                                className="inline-flex items-center px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm hover:shadow-md"
+                              >
+                                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                </svg>
+                                Edit
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* View Profile Modal */}
+      {showProfileModal && selectedStudentProfile && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full my-8">
+            <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 rounded-t-2xl flex justify-between items-center">
+              <div>
+                <h3 className="text-2xl font-bold text-slate-800">
+                  {selectedStudentProfile.firstName} {selectedStudentProfile.lastName}
+                </h3>
+                <p className="text-slate-600 text-sm">{selectedStudentProfile.user?.email}</p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowProfileModal(false)
+                  setSelectedStudentProfile(null)
+                }}
+                className="text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
+              {/* Personal Information */}
+              <div>
+                <h4 className="text-lg font-bold text-slate-800 mb-3 flex items-center">
+                  <svg className="w-5 h-5 mr-2 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                  Personal Information
+                </h4>
+                <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-lg">
+                  <div>
+                    <p className="text-xs font-semibold text-slate-500 uppercase">Phone</p>
+                    <p className="text-slate-800">{selectedStudentProfile.phone || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-slate-500 uppercase">Date of Birth</p>
+                    <p className="text-slate-800">
+                      {selectedStudentProfile.dateOfBirth 
+                        ? new Date(selectedStudentProfile.dateOfBirth).toLocaleDateString() 
+                        : 'N/A'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-slate-500 uppercase">Gender</p>
+                    <p className="text-slate-800">{selectedStudentProfile.gender || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-slate-500 uppercase">Nationality</p>
+                    <p className="text-slate-800">{selectedStudentProfile.nationality || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-slate-500 uppercase">Country of Birth</p>
+                    <p className="text-slate-800">{selectedStudentProfile.countryOfBirth || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-slate-500 uppercase">Native Language</p>
+                    <p className="text-slate-800">{selectedStudentProfile.nativeLanguage || 'N/A'}</p>
+                  </div>
+                  <div className="col-span-2">
+                    <p className="text-xs font-semibold text-slate-500 uppercase">Address</p>
+                    <p className="text-slate-800">{selectedStudentProfile.address || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-slate-500 uppercase">Postal Code</p>
+                    <p className="text-slate-800">{selectedStudentProfile.postalCode || 'N/A'}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Passport Information */}
+              {(selectedStudentProfile.passportNumber || selectedStudentProfile.nameAsPerPassport) && (
+                <div>
+                  <h4 className="text-lg font-bold text-slate-800 mb-3 flex items-center">
+                    <svg className="w-5 h-5 mr-2 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    Passport Information
+                  </h4>
+                  <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-lg">
+                    <div>
+                      <p className="text-xs font-semibold text-slate-500 uppercase">Passport Number</p>
+                      <p className="text-slate-800">{selectedStudentProfile.passportNumber || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-slate-500 uppercase">Name as per Passport</p>
+                      <p className="text-slate-800">{selectedStudentProfile.nameAsPerPassport || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-slate-500 uppercase">Issue Location</p>
+                      <p className="text-slate-800">{selectedStudentProfile.passportIssueLocation || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-slate-500 uppercase">Issue Date</p>
+                      <p className="text-slate-800">
+                        {selectedStudentProfile.passportIssueDate 
+                          ? new Date(selectedStudentProfile.passportIssueDate).toLocaleDateString() 
+                          : 'N/A'}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-slate-500 uppercase">Expiry Date</p>
+                      <p className="text-slate-800">
+                        {selectedStudentProfile.passportExpiryDate 
+                          ? new Date(selectedStudentProfile.passportExpiryDate).toLocaleDateString() 
+                          : 'N/A'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Education Information */}
+              {(selectedStudentProfile.school || selectedStudentProfile.highSchool || selectedStudentProfile.bachelorsIn) && (
+                <div>
+                  <h4 className="text-lg font-bold text-slate-800 mb-3 flex items-center">
+                    <svg className="w-5 h-5 mr-2 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                    </svg>
+                    Education Information
+                  </h4>
+                  <div className="space-y-4">
+                    {selectedStudentProfile.school && (
+                      <div className="bg-slate-50 p-4 rounded-lg">
+                        <p className="font-semibold text-slate-700 mb-2">School (10th Grade)</p>
+                        <div className="grid grid-cols-2 gap-3 text-sm">
+                          <div>
+                            <p className="text-xs font-semibold text-slate-500">School Name</p>
+                            <p className="text-slate-800">{selectedStudentProfile.school}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs font-semibold text-slate-500">Country</p>
+                            <p className="text-slate-800">{selectedStudentProfile.schoolCountry || 'N/A'}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs font-semibold text-slate-500">Grade</p>
+                            <p className="text-slate-800">{selectedStudentProfile.schoolGrade || 'N/A'}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    {selectedStudentProfile.highSchool && (
+                      <div className="bg-slate-50 p-4 rounded-lg">
+                        <p className="font-semibold text-slate-700 mb-2">High School (12th Grade)</p>
+                        <div className="grid grid-cols-2 gap-3 text-sm">
+                          <div>
+                            <p className="text-xs font-semibold text-slate-500">School Name</p>
+                            <p className="text-slate-800">{selectedStudentProfile.highSchool}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs font-semibold text-slate-500">Country</p>
+                            <p className="text-slate-800">{selectedStudentProfile.highSchoolCountry || 'N/A'}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs font-semibold text-slate-500">Grade</p>
+                            <p className="text-slate-800">{selectedStudentProfile.highSchoolGrade || 'N/A'}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    {selectedStudentProfile.bachelorsIn && (
+                      <div className="bg-slate-50 p-4 rounded-lg">
+                        <p className="font-semibold text-slate-700 mb-2">Bachelor&apos;s Degree</p>
+                        <div className="grid grid-cols-2 gap-3 text-sm">
+                          <div>
+                            <p className="text-xs font-semibold text-slate-500">Field of Study</p>
+                            <p className="text-slate-800">{selectedStudentProfile.bachelorsIn}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs font-semibold text-slate-500">Institute</p>
+                            <p className="text-slate-800">{selectedStudentProfile.bachelorsFromInstitute || 'N/A'}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs font-semibold text-slate-500">Country</p>
+                            <p className="text-slate-800">{selectedStudentProfile.bachelorsCountry || 'N/A'}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs font-semibold text-slate-500">Grade</p>
+                            <p className="text-slate-800">{selectedStudentProfile.bachelorsGrade || 'N/A'}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Documents */}
+              {selectedStudentProfile.documents && selectedStudentProfile.documents.length > 0 && (
+                <div>
+                  <h4 className="text-lg font-bold text-slate-800 mb-3 flex items-center">
+                    <svg className="w-5 h-5 mr-2 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                    </svg>
+                    Uploaded Documents
+                  </h4>
+                  <div className="space-y-2">
+                    {selectedStudentProfile.documents.map((doc: any) => (
+                      <div key={doc.id} className="flex items-center justify-between bg-slate-50 p-3 rounded-lg">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
+                            <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                            </svg>
+                          </div>
+                          <div>
+                            <p className="font-semibold text-slate-800">{doc.type.replace(/_/g, ' ')}</p>
+                            <p className="text-xs text-slate-500">{doc.fileName}</p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => window.open(`/api/documents/${doc.id}`, '_blank')}
+                          className="px-3 py-1.5 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 transition-colors"
+                        >
+                          View
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="sticky bottom-0 bg-slate-50 px-6 py-4 rounded-b-2xl border-t border-slate-200">
+              <button
+                onClick={() => {
+                  setShowProfileModal(false)
+                  setSelectedStudentProfile(null)
+                }}
+                className="w-full px-4 py-2.5 bg-slate-600 text-white rounded-lg hover:bg-slate-700 font-medium transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Profile Modal - To be continued in next part due to length */}
+      {showProfileEditModal && selectedStudentProfile && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full my-8">
+            <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 rounded-t-2xl flex justify-between items-center">
+              <div>
+                <h3 className="text-2xl font-bold text-slate-800">Edit Student Profile</h3>
+                <p className="text-slate-600 text-sm">
+                  {selectedStudentProfile.firstName} {selectedStudentProfile.lastName}
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowProfileEditModal(false)
+                  setSelectedStudentProfile(null)
+                }}
+                className="text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateProfile} className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
+              {/* Personal Information */}
+              <div>
+                <h4 className="text-lg font-bold text-slate-800 mb-3">Personal Information</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">First Name</label>
+                    <input
+                      type="text"
+                      className="input"
+                      value={profileEditForm.firstName}
+                      onChange={(e) => setProfileEditForm({...profileEditForm, firstName: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">Last Name</label>
+                    <input
+                      type="text"
+                      className="input"
+                      value={profileEditForm.lastName}
+                      onChange={(e) => setProfileEditForm({...profileEditForm, lastName: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">Phone</label>
+                    <input
+                      type="text"
+                      className="input"
+                      value={profileEditForm.phone}
+                      onChange={(e) => setProfileEditForm({...profileEditForm, phone: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">Date of Birth</label>
+                    <input
+                      type="date"
+                      className="input"
+                      value={profileEditForm.dateOfBirth}
+                      onChange={(e) => setProfileEditForm({...profileEditForm, dateOfBirth: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">Gender</label>
+                    <select
+                      className="input"
+                      value={profileEditForm.gender}
+                      onChange={(e) => setProfileEditForm({...profileEditForm, gender: e.target.value})}
+                    >
+                      <option value="">Select...</option>
+                      <option value="Male">Male</option>
+                      <option value="Female">Female</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">Nationality</label>
+                    <input
+                      type="text"
+                      className="input"
+                      value={profileEditForm.nationality}
+                      onChange={(e) => setProfileEditForm({...profileEditForm, nationality: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">Country of Birth</label>
+                    <input
+                      type="text"
+                      className="input"
+                      value={profileEditForm.countryOfBirth}
+                      onChange={(e) => setProfileEditForm({...profileEditForm, countryOfBirth: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">Native Language</label>
+                    <input
+                      type="text"
+                      className="input"
+                      value={profileEditForm.nativeLanguage}
+                      onChange={(e) => setProfileEditForm({...profileEditForm, nativeLanguage: e.target.value})}
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">Address</label>
+                    <input
+                      type="text"
+                      className="input"
+                      value={profileEditForm.address}
+                      onChange={(e) => setProfileEditForm({...profileEditForm, address: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">Postal Code</label>
+                    <input
+                      type="text"
+                      className="input"
+                      value={profileEditForm.postalCode}
+                      onChange={(e) => setProfileEditForm({...profileEditForm, postalCode: e.target.value})}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Passport Information */}
+              <div>
+                <h4 className="text-lg font-bold text-slate-800 mb-3">Passport Information</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">Passport Number</label>
+                    <input
+                      type="text"
+                      className="input"
+                      value={profileEditForm.passportNumber}
+                      onChange={(e) => setProfileEditForm({...profileEditForm, passportNumber: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">Name as per Passport</label>
+                    <input
+                      type="text"
+                      className="input"
+                      value={profileEditForm.nameAsPerPassport}
+                      onChange={(e) => setProfileEditForm({...profileEditForm, nameAsPerPassport: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">Issue Location</label>
+                    <input
+                      type="text"
+                      className="input"
+                      value={profileEditForm.passportIssueLocation}
+                      onChange={(e) => setProfileEditForm({...profileEditForm, passportIssueLocation: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">Issue Date</label>
+                    <input
+                      type="date"
+                      className="input"
+                      value={profileEditForm.passportIssueDate}
+                      onChange={(e) => setProfileEditForm({...profileEditForm, passportIssueDate: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">Expiry Date</label>
+                    <input
+                      type="date"
+                      className="input"
+                      value={profileEditForm.passportExpiryDate}
+                      onChange={(e) => setProfileEditForm({...profileEditForm, passportExpiryDate: e.target.value})}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Education - School */}
+              <div>
+                <h4 className="text-lg font-bold text-slate-800 mb-3">School (10th Grade)</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">School Name</label>
+                    <input
+                      type="text"
+                      className="input"
+                      value={profileEditForm.school}
+                      onChange={(e) => setProfileEditForm({...profileEditForm, school: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">Country</label>
+                    <input
+                      type="text"
+                      className="input"
+                      value={profileEditForm.schoolCountry}
+                      onChange={(e) => setProfileEditForm({...profileEditForm, schoolCountry: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">Grade/Percentage</label>
+                    <input
+                      type="text"
+                      className="input"
+                      value={profileEditForm.schoolGrade}
+                      onChange={(e) => setProfileEditForm({...profileEditForm, schoolGrade: e.target.value})}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Education - High School */}
+              <div>
+                <h4 className="text-lg font-bold text-slate-800 mb-3">High School (12th Grade)</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">School Name</label>
+                    <input
+                      type="text"
+                      className="input"
+                      value={profileEditForm.highSchool}
+                      onChange={(e) => setProfileEditForm({...profileEditForm, highSchool: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">Country</label>
+                    <input
+                      type="text"
+                      className="input"
+                      value={profileEditForm.highSchoolCountry}
+                      onChange={(e) => setProfileEditForm({...profileEditForm, highSchoolCountry: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">Grade/Percentage</label>
+                    <input
+                      type="text"
+                      className="input"
+                      value={profileEditForm.highSchoolGrade}
+                      onChange={(e) => setProfileEditForm({...profileEditForm, highSchoolGrade: e.target.value})}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Education - Bachelors */}
+              <div>
+                <h4 className="text-lg font-bold text-slate-800 mb-3">Bachelor&apos;s Degree</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">Field of Study</label>
+                    <input
+                      type="text"
+                      className="input"
+                      value={profileEditForm.bachelorsIn}
+                      onChange={(e) => setProfileEditForm({...profileEditForm, bachelorsIn: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">Institute</label>
+                    <input
+                      type="text"
+                      className="input"
+                      value={profileEditForm.bachelorsFromInstitute}
+                      onChange={(e) => setProfileEditForm({...profileEditForm, bachelorsFromInstitute: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">Country</label>
+                    <input
+                      type="text"
+                      className="input"
+                      value={profileEditForm.bachelorsCountry}
+                      onChange={(e) => setProfileEditForm({...profileEditForm, bachelorsCountry: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">Grade/CGPA</label>
+                    <input
+                      type="text"
+                      className="input"
+                      value={profileEditForm.bachelorsGrade}
+                      onChange={(e) => setProfileEditForm({...profileEditForm, bachelorsGrade: e.target.value})}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Test Scores */}
+              <div>
+                <h4 className="text-lg font-bold text-slate-800 mb-3">Test Scores</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="greTaken"
+                      checked={profileEditForm.greTaken}
+                      onChange={(e) => setProfileEditForm({...profileEditForm, greTaken: e.target.checked})}
+                      className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500"
+                    />
+                    <label htmlFor="greTaken" className="ml-2 text-sm font-semibold text-slate-700">
+                      GRE Taken
+                    </label>
+                  </div>
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="toeflTaken"
+                      checked={profileEditForm.toeflTaken}
+                      onChange={(e) => setProfileEditForm({...profileEditForm, toeflTaken: e.target.checked})}
+                      className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500"
+                    />
+                    <label htmlFor="toeflTaken" className="ml-2 text-sm font-semibold text-slate-700">
+                      TOEFL Taken
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Documents */}
+              {selectedStudentProfile.documents && selectedStudentProfile.documents.length > 0 && (
+                <div>
+                  <h4 className="text-lg font-bold text-slate-800 mb-3">Documents</h4>
+                  <div className="space-y-2">
+                    {selectedStudentProfile.documents.map((doc: any) => (
+                      <div key={doc.id} className="flex items-center justify-between bg-slate-50 p-3 rounded-lg">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
+                            <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                            </svg>
+                          </div>
+                          <div>
+                            <p className="font-semibold text-slate-800">{doc.type.replace(/_/g, ' ')}</p>
+                            <p className="text-xs text-slate-500">{doc.fileName}</p>
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => window.open(`/api/documents/${doc.id}`, '_blank')}
+                            className="px-3 py-1.5 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 transition-colors"
+                          >
+                            View
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setShowDocDeleteWarning(doc.id)}
+                            className="px-3 py-1.5 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700 transition-colors"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </form>
+
+            <div className="sticky bottom-0 bg-slate-50 px-6 py-4 rounded-b-2xl border-t border-slate-200">
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowProfileEditModal(false)
+                    setSelectedStudentProfile(null)
+                  }}
+                  className="flex-1 px-4 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-100 font-medium transition-colors"
+                  disabled={loading}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleUpdateProfile}
+                  className="flex-1 px-4 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium transition-colors shadow-sm hover:shadow-md"
+                  disabled={loading}
+                >
+                  {loading ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Document Delete Warning Modal */}
+      {showDocDeleteWarning && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+            <div className="text-center">
+              <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-red-100 mb-4">
+                <svg className="h-8 w-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold text-slate-900 mb-2">Delete Document</h3>
+              <p className="text-slate-600 mb-6">
+                ⚠️ <strong>Warning:</strong> You are about to permanently delete this document. This action cannot be undone. The student will need to re-upload the document if needed.
+              </p>
+              <p className="text-sm text-slate-500 mb-6">
+                Are you sure you want to proceed with deleting this document?
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowDocDeleteWarning(null)}
+                  className="flex-1 px-4 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 font-medium transition-colors"
+                  disabled={loading}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => handleDeleteDocument(showDocDeleteWarning)}
+                  className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium transition-colors shadow-sm hover:shadow-md"
+                  disabled={loading}
+                >
+                  {loading ? 'Deleting...' : 'Delete Document'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
