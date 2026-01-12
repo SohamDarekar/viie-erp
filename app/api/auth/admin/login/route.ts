@@ -30,7 +30,10 @@ export async function POST(req: NextRequest) {
     let adminUser = await prisma.user.findFirst({
       where: {
         role: 'ADMIN',
-        email: 'admin@viie.edu',
+        OR: [
+          { email: 'admin@viie.edu' },
+          { username: 'admin' },
+        ],
       },
     })
 

@@ -653,7 +653,7 @@ export default function AdminDashboard() {
         {/* Students Tab */}
         {activeTab === 'students' && (
           <div className="animate-fade-in">
-            <div className="card">
+            <div className="card min-h-[800px]">
               <div className="card-header">
                 <h2 className="card-title">All Students</h2>
                 <span className="text-sm text-slate-600">{students.length} total</span>

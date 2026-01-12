@@ -82,6 +82,12 @@ export default function OnboardingPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // If not on the final step, don't submit the form
+    if (currentStep < totalSteps) {
+      return
+    }
+    
     setError('')
     setLoading(true)
 
@@ -127,15 +133,32 @@ export default function OnboardingPage() {
     )
   }
 
-  const nextStep = () => {
+  const nextStep = (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault()
+    }
     if (currentStep < totalSteps) {
       setCurrentStep(currentStep + 1)
     }
   }
 
-  const prevStep = () => {
+  const prevStep = (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault()
+    }
     if (currentStep > 1) {
       setCurrentStep(currentStep - 1)
+    }
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLFormElement>) => {
+    // Prevent Enter key from submitting form on steps 1 and 2
+    if (e.key === 'Enter' && currentStep < totalSteps) {
+      e.preventDefault()
+      // If on a valid step and can proceed, move to next step
+      if (canProceed()) {
+        nextStep()
+      }
     }
   }
 
@@ -226,7 +249,7 @@ export default function OnboardingPage() {
 
         {/* Form Card */}
         <div className="bg-white rounded-3xl shadow-2xl p-8 md:p-10 animate-slide-up">
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} onKeyDown={handleKeyDown} className="space-y-6">
             {error && (
               <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-start">
                 <svg className="w-5 h-5 mr-2 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
