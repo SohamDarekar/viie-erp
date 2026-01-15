@@ -159,6 +159,29 @@ export default function ProfilePage() {
   const [financialDocs, setFinancialDocs] = useState<{[key: string]: File | null}>({})
   const [existingFinancialDocs, setExistingFinancialDocs] = useState<{[key: string]: { id: string; fileName: string }}>({})
 
+  // Form visibility state
+  const [formVisibility, setFormVisibility] = useState<{
+    personalDetails: boolean
+    education: boolean
+    travel: boolean
+    workDetails: boolean
+    financials: boolean
+    documents: boolean
+    courseDetails: boolean
+    university: boolean
+    postAdmission: boolean
+  }>({
+    personalDetails: true,
+    education: true,
+    travel: true,
+    workDetails: true,
+    financials: true,
+    documents: true,
+    courseDetails: true,
+    university: true,
+    postAdmission: true,
+  })
+
   const [profile, setProfile] = useState<ProfileData>({
     firstName: '',
     lastName: '',
@@ -593,7 +616,44 @@ export default function ProfilePage() {
 
   useEffect(() => {
     loadProfile()
+    loadFormVisibility()
   }, [loadProfile])
+
+  const loadFormVisibility = async () => {
+    try {
+      const res = await fetch('/api/student/form-visibility')
+      if (res.ok) {
+        const data = await res.json()
+        setFormVisibility(data.formVisibility)
+      }
+    } catch (error) {
+      console.error('Failed to load form visibility settings:', error)
+      // Keep default visibility (all sections visible) if fetch fails
+    }
+  }
+
+  // Filter tabs based on form visibility settings
+  const visibleTabs = TABS.filter(tab => {
+    const tabVisibilityMap: { [key in Tab]: keyof typeof formVisibility } = {
+      'personal': 'personalDetails',
+      'education': 'education',
+      'travel': 'travel',
+      'work': 'workDetails',
+      'financials': 'financials',
+      'documents': 'documents',
+      'course': 'courseDetails',
+      'university': 'university',
+      'post-admission': 'postAdmission',
+    }
+    return formVisibility[tabVisibilityMap[tab.id]]
+  })
+
+  // Ensure activeTab is visible, otherwise switch to first visible tab
+  useEffect(() => {
+    if (visibleTabs.length > 0 && !visibleTabs.find(t => t.id === activeTab)) {
+      setActiveTab(visibleTabs[0].id)
+    }
+  }, [visibleTabs, activeTab])
 
   const handleSave = async () => {
     setSaving(true)
@@ -676,30 +736,52 @@ export default function ProfilePage() {
           {/* Sidebar Navigation */}
           <div className="col-span-12 lg:col-span-3">
             <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-4 border border-slate-200 dark:border-slate-700 transition-colors">
-              <nav className="space-y-1">
-                {TABS.map((tab) => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors ${
-                      activeTab === tab.id
-                        ? 'bg-indigo-50 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300'
-                        : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
-                    }`}
-                  >
-                    <span className="text-xl">{tab.icon}</span>
-                    <span>{tab.label}</span>
-                  </button>
-                ))}
-              </nav>
+              {visibleTabs.length === 0 ? (
+                <div className="text-center py-8">
+                  <svg className="w-16 h-16 mx-auto text-slate-300 dark:text-slate-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <p className="text-slate-500 dark:text-slate-400 text-sm font-medium">No sections available</p>
+                  <p className="text-slate-400 dark:text-slate-500 text-xs mt-2">Contact your administrator for access</p>
+                </div>
+              ) : (
+                <nav className="space-y-1">
+                  {visibleTabs.map((tab) => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id)}
+                      className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors ${
+                        activeTab === tab.id
+                          ? 'bg-indigo-50 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300'
+                          : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
+                      }`}
+                    >
+                      <span className="text-xl">{tab.icon}</span>
+                      <span>{tab.label}</span>
+                    </button>
+                  ))}
+                </nav>
+              )}
             </div>
           </div>
 
           {/* Content Area */}
           <div className="col-span-12 lg:col-span-9">
             <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-8 border border-slate-200 dark:border-slate-700 transition-colors">
-              {/* Personal Details Tab */}
-              {activeTab === 'personal' && (
+              {visibleTabs.length === 0 ? (
+                <div className="text-center py-16">
+                  <svg className="w-24 h-24 mx-auto text-slate-300 dark:text-slate-600 mb-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                  <h3 className="text-2xl font-bold text-slate-700 dark:text-slate-300 mb-3">Access Restricted</h3>
+                  <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto">
+                    No profile sections are currently available for your batch. Please contact your administrator for more information.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  {/* Personal Details Tab */}
+                  {activeTab === 'personal' && formVisibility.personalDetails && (
                 <div className="space-y-6">
                   <h2 className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">Personal Details</h2>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1003,7 +1085,7 @@ export default function ProfilePage() {
               )}
 
               {/* Education Tab */}
-              {activeTab === 'education' && (
+              {activeTab === 'education' && formVisibility.education && (
                 <div className="space-y-6">
                   <h2 className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">Education</h2>
                   
@@ -1504,7 +1586,7 @@ export default function ProfilePage() {
               )}
 
               {/* Travel Tab */}
-              {activeTab === 'travel' && (
+              {activeTab === 'travel' && formVisibility.travel && (
                 <div className="space-y-6">
                   <h2 className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">Travel History</h2>
                   <p className="text-slate-600 dark:text-slate-400">Enter your travel history for the last 5 years</p>
@@ -1641,7 +1723,7 @@ export default function ProfilePage() {
               )}
 
               {/* Work Details Tab (Merged with References) */}
-              {activeTab === 'work' && (
+              {activeTab === 'work' && formVisibility.workDetails && (
                 <div className="space-y-6">
                   <h2 className="text-2xl font-bold text-indigo-600">Work Experience & References</h2>
 
@@ -2135,7 +2217,7 @@ export default function ProfilePage() {
               )}
 
               {/* Financials Tab */}
-              {activeTab === 'financials' && (
+              {activeTab === 'financials' && formVisibility.financials && (
                 <div className="space-y-6">
                   <h2 className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">Financials</h2>
                   <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
@@ -2481,7 +2563,7 @@ export default function ProfilePage() {
               )}
 
               {/* Documents Tab */}
-              {activeTab === 'documents' && (
+              {activeTab === 'documents' && formVisibility.documents && (
                 <div className="space-y-6">
                   <h2 className="text-2xl font-bold text-indigo-600">Documents</h2>
                   <div className="text-center py-12 text-gray-500">
@@ -2492,7 +2574,7 @@ export default function ProfilePage() {
               )}
 
               {/* Course Details Tab */}
-              {activeTab === 'course' && (
+              {activeTab === 'course' && formVisibility.courseDetails && (
                 <div className="space-y-6">
                   <h2 className="text-2xl font-bold text-indigo-600">Course Details</h2>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -2531,7 +2613,7 @@ export default function ProfilePage() {
               )}
 
               {/* University Tab */}
-              {activeTab === 'university' && (
+              {activeTab === 'university' && formVisibility.university && (
                 <div className="space-y-6">
                   <h2 className="text-2xl font-bold text-indigo-600">University Information</h2>
                   <div className="text-center py-12 text-gray-500">
@@ -2542,7 +2624,7 @@ export default function ProfilePage() {
               )}
 
               {/* Post Admission Tab */}
-              {activeTab === 'post-admission' && (
+              {activeTab === 'post-admission' && formVisibility.postAdmission && (
                 <div className="space-y-6">
                   <h2 className="text-2xl font-bold text-indigo-600">Post Admission</h2>
                   <div className="text-center py-12 text-gray-500">
@@ -2569,6 +2651,8 @@ export default function ProfilePage() {
                   {saving ? 'Saving...' : 'Save Changes'}
                 </button>
               </div>
+              </>
+              )}
             </div>
           </div>
         </div>

@@ -253,10 +253,37 @@ model Batch {
   students  Student[]
   tasks     TaskAssignment[]
   resources Resource[]
+  formVisibility FormVisibility?
 
   // Compound unique index to prevent duplicate batches
   @@unique([program, intakeYear])
   @@map("batches")
+}
+
+// ======================
+// FORM VISIBILITY CONTROL
+// ======================
+
+model FormVisibility {
+  id      String @id @default(auto()) @map("_id") @db.ObjectId
+  batchId String @unique @db.ObjectId
+  batch   Batch  @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  // Form sections visibility flags (true = visible, false = hidden)
+  personalDetails  Boolean @default(true)
+  education        Boolean @default(true)
+  travel           Boolean @default(true)
+  workDetails      Boolean @default(true)
+  financials       Boolean @default(true)
+  documents        Boolean @default(true)
+  courseDetails    Boolean @default(true)
+  university       Boolean @default(true)
+  postAdmission    Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("form_visibility")
 }
 
 // ======================
