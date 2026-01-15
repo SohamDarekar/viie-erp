@@ -14,10 +14,11 @@ import {
   FaFileAlt, 
   FaBook, 
   FaUniversity, 
-  FaCheckCircle 
+  FaCheckCircle,
+  FaDollarSign
 } from 'react-icons/fa'
 
-type Tab = 'personal' | 'education' | 'travel' | 'work' | 'documents' | 'course' | 'university' | 'post-admission'
+type Tab = 'personal' | 'education' | 'travel' | 'work' | 'financials' | 'documents' | 'course' | 'university' | 'post-admission'
 
 type WorkExperience = {
   id: string
@@ -48,6 +49,15 @@ interface TravelEntry {
   endDate: string
   country: string
   reason: string
+}
+
+interface OtherSource {
+  id: string
+  name: string
+  relationship: string
+  age: string
+  dateOfBirth: string
+  incomeType: string
 }
 
 interface ProfileData {
@@ -95,7 +105,19 @@ interface ProfileData {
   bachelorsEndDate: string
   bachelorsGrade: string
   greTaken: boolean
+  greScore: string
   toeflTaken: boolean
+  toeflScore: string
+  languageTest: string
+  languageTestScore: string
+  // Financial fields
+  personalEverEmployed: string
+  personalTakingLoan: string
+  personalLoanAmount: string
+  personalLoanBankName: string
+  motherIncomeType: string
+  fatherIncomeType: string
+  otherSources: OtherSource[]
 }
 
 const TABS: { id: Tab; label: string; icon: JSX.Element }[] = [
@@ -103,6 +125,7 @@ const TABS: { id: Tab; label: string; icon: JSX.Element }[] = [
   { id: 'education', label: 'Education', icon: <FaGraduationCap /> },
   { id: 'travel', label: 'Travel', icon: <FaPlane /> },
   { id: 'work', label: 'Work Details', icon: <FaBriefcase /> },
+  { id: 'financials', label: 'Financials', icon: <FaDollarSign /> },
   { id: 'documents', label: 'Documents', icon: <FaFileAlt /> },
   { id: 'course', label: 'Course Details', icon: <FaBook /> },
   { id: 'university', label: 'University', icon: <FaUniversity /> },
@@ -127,9 +150,14 @@ export default function ProfilePage() {
     passport?: { id: string; fileName: string };
     aadharCard?: { id: string; fileName: string };
     driversLicense?: { id: string; fileName: string };
+    [key: string]: { id: string; fileName: string } | undefined;
   }>({})
   const [hasWorkExperience, setHasWorkExperience] = useState<string>('')
   const [workExperiences, setWorkExperiences] = useState<WorkExperience[]>([])
+  
+  // Financial document states
+  const [financialDocs, setFinancialDocs] = useState<{[key: string]: File | null}>({})
+  const [existingFinancialDocs, setExistingFinancialDocs] = useState<{[key: string]: { id: string; fileName: string }}>({})
 
   const [profile, setProfile] = useState<ProfileData>({
     firstName: '',
@@ -176,7 +204,19 @@ export default function ProfilePage() {
     bachelorsEndDate: '',
     bachelorsGrade: '',
     greTaken: false,
+    greScore: '',
     toeflTaken: false,
+    toeflScore: '',
+    languageTest: '',
+    languageTestScore: '',
+    // Financial fields
+    personalEverEmployed: '',
+    personalTakingLoan: '',
+    personalLoanAmount: '',
+    personalLoanBankName: '',
+    motherIncomeType: '',
+    fatherIncomeType: '',
+    otherSources: [],
   })
 
   const loadProfile = useCallback(async () => {
@@ -237,7 +277,19 @@ export default function ProfilePage() {
         bachelorsEndDate: student.bachelorsEndDate ? new Date(student.bachelorsEndDate).toISOString().split('T')[0] : '',
         bachelorsGrade: student.bachelorsGrade || '',
         greTaken: student.greTaken || false,
+        greScore: student.greScore || '',
         toeflTaken: student.toeflTaken || false,
+        toeflScore: student.toeflScore || '',
+        languageTest: student.languageTest || '',
+        languageTestScore: student.languageTestScore || '',
+        // Financial fields
+        personalEverEmployed: student.personalEverEmployed || '',
+        personalTakingLoan: student.personalTakingLoan || '',
+        personalLoanAmount: student.personalLoanAmount || '',
+        personalLoanBankName: student.personalLoanBankName || '',
+        motherIncomeType: student.motherIncomeType || '',
+        fatherIncomeType: student.fatherIncomeType || '',
+        otherSources: student.otherSources || [],
       })
 
       // Load work experiences
@@ -288,6 +340,8 @@ export default function ProfilePage() {
       if (res.ok) {
         const data = await res.json()
         const docs: any = {}
+        const financialDocs: any = {}
+        
         data.documents.forEach((doc: any) => {
           if (doc.type === 'MARKSHEET_10TH') {
             docs.marksheet10th = { id: doc.id, fileName: doc.fileName }
@@ -299,9 +353,26 @@ export default function ProfilePage() {
             docs.aadharCard = { id: doc.id, fileName: doc.fileName }
           } else if (doc.type === 'DRIVERS_LICENSE') {
             docs.driversLicense = { id: doc.id, fileName: doc.fileName }
+          } else if (doc.type === 'GRE_SCORECARD') {
+            docs.greScorecard = { id: doc.id, fileName: doc.fileName }
+          } else if (doc.type === 'TOEFL_SCORECARD') {
+            docs.toeflScorecard = { id: doc.id, fileName: doc.fileName }
+          } else if (doc.type === 'LANGUAGE_TEST_SCORECARD') {
+            docs.languageTestScorecard = { id: doc.id, fileName: doc.fileName }
+          } else if (doc.type.startsWith('PERSONAL_') || doc.type.startsWith('MOTHER_') || 
+                     doc.type.startsWith('FATHER_') || doc.type.startsWith('OTHER_SOURCE_')) {
+            // Financial documents
+            // Rebuild composite key for other source documents
+            let key = doc.type
+            if (doc.type.startsWith('OTHER_SOURCE_') && doc.otherSourceIndex !== null && doc.otherSourceIndex !== undefined) {
+              // Convert OTHER_SOURCE_PAN_CARD with index 0 to OTHER_SOURCE_0_PAN_CARD
+              key = doc.type.replace('OTHER_SOURCE_', `OTHER_SOURCE_${doc.otherSourceIndex}_`)
+            }
+            financialDocs[key] = { id: doc.id, fileName: doc.fileName }
           }
         })
         setExistingDocs(docs)
+        setExistingFinancialDocs(financialDocs)
       }
     } catch (error) {
       console.error('Failed to load documents:', error)
@@ -312,7 +383,7 @@ export default function ProfilePage() {
     window.open(`/api/documents/${docId}`, '_blank')
   }
 
-  const handleRemoveDocument = async (docId: string, type: 'MARKSHEET_10TH' | 'MARKSHEET_12TH' | 'PASSPORT' | 'AADHAR_CARD' | 'DRIVERS_LICENSE') => {
+  const handleRemoveDocument = async (docId: string, type: 'MARKSHEET_10TH' | 'MARKSHEET_12TH' | 'PASSPORT' | 'AADHAR_CARD' | 'DRIVERS_LICENSE' | 'GRE_SCORECARD' | 'TOEFL_SCORECARD' | 'LANGUAGE_TEST_SCORECARD') => {
     setUploading(true)
     setAlert(null)
     try {
@@ -334,7 +405,7 @@ export default function ProfilePage() {
     }
   }
 
-  const handleFileUpload = async (file: File, type: 'MARKSHEET_10TH' | 'MARKSHEET_12TH' | 'PASSPORT' | 'AADHAR_CARD' | 'DRIVERS_LICENSE') => {
+  const handleFileUpload = async (file: File, type: 'MARKSHEET_10TH' | 'MARKSHEET_12TH' | 'PASSPORT' | 'AADHAR_CARD' | 'DRIVERS_LICENSE' | 'GRE_SCORECARD' | 'TOEFL_SCORECARD' | 'LANGUAGE_TEST_SCORECARD') => {
     setUploading(true)
     setAlert(null)
     try {
@@ -389,6 +460,136 @@ export default function ProfilePage() {
       setUploading(false)
     }
   }
+
+  // Financial document handlers
+  const handleFinancialFileUpload = async (file: File, type: string) => {
+    setUploading(true)
+    setAlert(null)
+    try {
+      // Validate PDF
+      if (file.type !== 'application/pdf') {
+        throw new Error('Only PDF files are allowed')
+      }
+
+      // If there's an existing document, delete it first
+      if (existingFinancialDocs[type]) {
+        const deleteRes = await fetch(`/api/documents/${existingFinancialDocs[type].id}`, {
+          method: 'DELETE',
+        })
+        if (!deleteRes.ok) {
+          const data = await deleteRes.json()
+          throw new Error(data.error || 'Failed to remove existing document')
+        }
+      }
+
+      const formData = new FormData()
+      formData.append('file', file)
+      
+      // Parse the type to extract otherSourceIndex if present
+      // Format: OTHER_SOURCE_0_PAN_CARD -> type: OTHER_SOURCE_PAN_CARD, index: 0
+      let actualType = type
+      let otherSourceIndex: number | null = null
+      
+      const otherSourceMatch = type.match(/^OTHER_SOURCE_(\d+)_(.+)$/)
+      if (otherSourceMatch) {
+        otherSourceIndex = parseInt(otherSourceMatch[1])
+        actualType = `OTHER_SOURCE_${otherSourceMatch[2]}`
+      }
+      
+      formData.append('type', actualType)
+      if (otherSourceIndex !== null) {
+        formData.append('otherSourceIndex', otherSourceIndex.toString())
+      }
+
+      const res = await fetch('/api/documents', {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || 'Failed to upload document')
+      }
+
+      setAlert({ type: 'success', message: 'Document uploaded successfully!' })
+      await loadDocuments()
+      
+      // Clear file input
+      setFinancialDocs(prev => ({ ...prev, [type]: null }))
+    } catch (error: any) {
+      setAlert({ type: 'error', message: error.message })
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const handleRemoveFinancialDocument = async (docId: string, type: string) => {
+    setUploading(true)
+    setAlert(null)
+    try {
+      const res = await fetch(`/api/documents/${docId}`, {
+        method: 'DELETE',
+      })
+
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || 'Failed to delete document')
+      }
+
+      setAlert({ type: 'success', message: 'Document removed successfully!' })
+      await loadDocuments()
+    } catch (error: any) {
+      setAlert({ type: 'error', message: error.message })
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  // Helper function to render file upload UI
+  const renderFileUpload = (key: string, label: string) => (
+    <div key={key} className="mb-4">
+      <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">{label}</label>
+      {existingFinancialDocs[key] ? (
+        <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800 flex items-center justify-between">
+          <span className="text-sm text-green-700 dark:text-green-400">✓ Uploaded: {existingFinancialDocs[key].fileName}</span>
+          <button
+            onClick={() => handleRemoveFinancialDocument(existingFinancialDocs[key].id, key)}
+            className="px-3 py-1 bg-red-500 text-white text-sm rounded hover:bg-red-600"
+            disabled={uploading}
+          >
+            Remove
+          </button>
+        </div>
+      ) : (
+        <div className="flex items-center gap-3">
+          <label className="cursor-pointer px-6 py-2 bg-indigo-400 text-white rounded-lg hover:bg-indigo-500 transition-all text-sm font-semibold">
+            Browse...
+            <input
+              type="file"
+              className="hidden"
+              accept=".pdf"
+              onChange={(e) => {
+                const file = e.target.files?.[0]
+                if (file) setFinancialDocs(prev => ({ ...prev, [key]: file }))
+              }}
+            />
+          </label>
+          <span className="text-sm text-slate-600 dark:text-slate-400">
+            {financialDocs[key]?.name || 'No file selected.'}
+          </span>
+          {financialDocs[key] && (
+            <button
+              onClick={() => handleFinancialFileUpload(financialDocs[key]!, key)}
+              className="px-6 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-all text-sm font-semibold"
+              disabled={uploading}
+            >
+              Upload
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  )
 
   useEffect(() => {
     loadProfile()
@@ -1033,8 +1234,19 @@ export default function ProfilePage() {
                           <option value="false">No</option>
                         </select>
                       </div>
+                      {profile.greTaken && (
+                        <div>
+                          <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">GRE Score</label>
+                          <Input
+                            type="text"
+                            value={profile.greScore}
+                            onChange={(e) => setProfile({ ...profile, greScore: e.target.value })}
+                            placeholder="Enter GRE score (e.g., 320)"
+                          />
+                        </div>
+                      )}
                       <div>
-                        <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">Toefl Taken</label>
+                        <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">TOEFL Taken</label>
                         <select
                           value={profile.toeflTaken ? 'true' : 'false'}
                           onChange={(e) => setProfile({ ...profile, toeflTaken: e.target.value === 'true' })}
@@ -1045,6 +1257,41 @@ export default function ProfilePage() {
                           <option value="false">No</option>
                         </select>
                       </div>
+                      {profile.toeflTaken && (
+                        <div>
+                          <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">TOEFL Score</label>
+                          <Input
+                            type="text"
+                            value={profile.toeflScore}
+                            onChange={(e) => setProfile({ ...profile, toeflScore: e.target.value })}
+                            placeholder="Enter TOEFL score (e.g., 110)"
+                          />
+                        </div>
+                      )}
+                      <div>
+                        <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">Language Test</label>
+                        <select
+                          value={profile.languageTest}
+                          onChange={(e) => setProfile({ ...profile, languageTest: e.target.value })}
+                          className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        >
+                          <option value="">Select Test</option>
+                          <option value="IELTS">IELTS</option>
+                          <option value="PTE">PTE</option>
+                          <option value="Duolingo">Duolingo</option>
+                        </select>
+                      </div>
+                      {profile.languageTest && (
+                        <div>
+                          <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">{profile.languageTest} Score</label>
+                          <Input
+                            type="text"
+                            value={profile.languageTestScore}
+                            onChange={(e) => setProfile({ ...profile, languageTestScore: e.target.value })}
+                            placeholder={`Enter ${profile.languageTest} score`}
+                          />
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -1136,6 +1383,123 @@ export default function ProfilePage() {
                       </div>
                     </div>
                   </div>
+
+                  {/* Test Score Uploads */}
+                  {(profile.greTaken || profile.toeflTaken || profile.languageTest) && (
+                    <div className="bg-slate-50 dark:bg-slate-700/50 p-6 rounded-lg">
+                      <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-200 mb-4">Upload Test Scorecards</h3>
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {profile.greTaken && (
+                          <div className="space-y-3">
+                            <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400">GRE Scorecard</label>
+                            {existingDocs.greScorecard ? (
+                              <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                                <div className="flex items-center justify-between gap-2">
+                                  <button
+                                    onClick={() => handleViewDocument(existingDocs.greScorecard!.id)}
+                                    className="text-sm text-green-700 dark:text-green-300 hover:text-green-900 dark:hover:text-green-100 underline cursor-pointer text-left flex-1"
+                                  >
+                                    ✓ Uploaded: {existingDocs.greScorecard.fileName}
+                                  </button>
+                                  <button
+                                    onClick={() => handleRemoveDocument(existingDocs.greScorecard!.id, 'GRE_SCORECARD')}
+                                    disabled={uploading}
+                                    className="px-3 py-1 text-xs font-medium text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    title="Remove this document"
+                                  >
+                                    Remove
+                                  </button>
+                                </div>
+                              </div>
+                            ) : null}
+                            <div className="flex flex-col sm:flex-row gap-2">
+                              <input
+                                type="file"
+                                accept="application/pdf"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0]
+                                  if (file) handleFileUpload(file, 'GRE_SCORECARD')
+                                }}
+                                className="w-full sm:flex-1 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 dark:file:bg-indigo-900/50 dark:file:text-indigo-300"
+                              />
+                            </div>
+                          </div>
+                        )}
+                        {profile.toeflTaken && (
+                          <div className="space-y-3">
+                            <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400">TOEFL Scorecard</label>
+                            {existingDocs.toeflScorecard ? (
+                              <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                                <div className="flex items-center justify-between gap-2">
+                                  <button
+                                    onClick={() => handleViewDocument(existingDocs.toeflScorecard!.id)}
+                                    className="text-sm text-green-700 dark:text-green-300 hover:text-green-900 dark:hover:text-green-100 underline cursor-pointer text-left flex-1"
+                                  >
+                                    ✓ Uploaded: {existingDocs.toeflScorecard.fileName}
+                                  </button>
+                                  <button
+                                    onClick={() => handleRemoveDocument(existingDocs.toeflScorecard!.id, 'TOEFL_SCORECARD')}
+                                    disabled={uploading}
+                                    className="px-3 py-1 text-xs font-medium text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    title="Remove this document"
+                                  >
+                                    Remove
+                                  </button>
+                                </div>
+                              </div>
+                            ) : null}
+                            <div className="flex flex-col sm:flex-row gap-2">
+                              <input
+                                type="file"
+                                accept="application/pdf"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0]
+                                  if (file) handleFileUpload(file, 'TOEFL_SCORECARD')
+                                }}
+                                className="w-full sm:flex-1 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 dark:file:bg-indigo-900/50 dark:file:text-indigo-300"
+                              />
+                            </div>
+                          </div>
+                        )}
+                        {profile.languageTest && (
+                          <div className="space-y-3">
+                            <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400">{profile.languageTest} Scorecard</label>
+                            {existingDocs.languageTestScorecard ? (
+                              <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                                <div className="flex items-center justify-between gap-2">
+                                  <button
+                                    onClick={() => handleViewDocument(existingDocs.languageTestScorecard!.id)}
+                                    className="text-sm text-green-700 dark:text-green-300 hover:text-green-900 dark:hover:text-green-100 underline cursor-pointer text-left flex-1"
+                                  >
+                                    ✓ Uploaded: {existingDocs.languageTestScorecard.fileName}
+                                  </button>
+                                  <button
+                                    onClick={() => handleRemoveDocument(existingDocs.languageTestScorecard!.id, 'LANGUAGE_TEST_SCORECARD')}
+                                    disabled={uploading}
+                                    className="px-3 py-1 text-xs font-medium text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    title="Remove this document"
+                                  >
+                                    Remove
+                                  </button>
+                                </div>
+                              </div>
+                            ) : null}
+                            <div className="flex flex-col sm:flex-row gap-2">
+                              <input
+                                type="file"
+                                accept="application/pdf"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0]
+                                  if (file) handleFileUpload(file, 'LANGUAGE_TEST_SCORECARD')
+                                }}
+                                className="w-full sm:flex-1 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 dark:file:bg-indigo-900/50 dark:file:text-indigo-300"
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -1767,6 +2131,352 @@ export default function ProfilePage() {
                       </button>
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* Financials Tab */}
+              {activeTab === 'financials' && (
+                <div className="space-y-6">
+                  <h2 className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">Financials</h2>
+                  <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
+                    Please upload all documents as PDF files only. For Statements and Balance Certificates, merge all PDFs into one before uploading.
+                  </p>
+
+                  {/* Personal Section */}
+                  <div className="bg-slate-50 dark:bg-slate-700/50 p-6 rounded-lg border-2 border-indigo-200 dark:border-indigo-800">
+                    <h3 className="text-xl font-semibold text-indigo-700 dark:text-indigo-400 mb-4">Personal Financial Information</h3>
+                    
+                    {renderFileUpload('PERSONAL_PAN_CARD', 'PAN Card *')}
+                    {renderFileUpload('PERSONAL_SALARY_ACCOUNT_STATEMENT', 'Last 6 Months Salary Account Statement (merge all PDFs)')}
+                    {renderFileUpload('PERSONAL_SAVING_ACCOUNT_STATEMENT', 'Saving Account Statement (merge all PDFs)')}
+                    {renderFileUpload('PERSONAL_FD_RECEIPTS', 'FD Receipts')}
+                    {renderFileUpload('PERSONAL_BALANCE_CERT_SAVINGS', 'Balance Certificate Savings Account')}
+                    {renderFileUpload('PERSONAL_BALANCE_CERT_FD', "Balance Certificate of FD's")}
+
+                    <div className="mb-4">
+                      <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">
+                        Were you ever employed? <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        value={profile.personalEverEmployed}
+                        onChange={(e) => setProfile({ ...profile, personalEverEmployed: e.target.value })}
+                      >
+                        <option value="">Select an option</option>
+                        <option value="YES">Yes</option>
+                        <option value="NO">No</option>
+                      </select>
+                    </div>
+
+                    {profile.personalEverEmployed === 'YES' && (
+                      <div className="space-y-4 mt-4 pl-4 border-l-4 border-indigo-300 dark:border-indigo-700">
+                        {renderFileUpload('PERSONAL_ITR', 'ITR')}
+                        {renderFileUpload('PERSONAL_SALARY_SLIPS', 'Salary Slips')}
+                      </div>
+                    )}
+
+                    <div className="mb-4 mt-4">
+                      <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">
+                        Are you taking a loan? <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        value={profile.personalTakingLoan}
+                        onChange={(e) => setProfile({ ...profile, personalTakingLoan: e.target.value })}
+                      >
+                        <option value="">Select an option</option>
+                        <option value="YES">Yes</option>
+                        <option value="NO">No</option>
+                      </select>
+                    </div>
+
+                    {profile.personalTakingLoan === 'YES' && (
+                      <div className="space-y-4 mt-4 pl-4 border-l-4 border-green-300 dark:border-green-700">
+                        <div>
+                          <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">
+                            Loan Amount
+                          </label>
+                          <input
+                            type="text"
+                            value={profile.personalLoanAmount}
+                            onChange={(e) => setProfile({ ...profile, personalLoanAmount: e.target.value })}
+                            className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            placeholder="Enter loan amount"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">
+                            Bank Name
+                          </label>
+                          <input
+                            type="text"
+                            value={profile.personalLoanBankName}
+                            onChange={(e) => setProfile({ ...profile, personalLoanBankName: e.target.value })}
+                            className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            placeholder="Enter bank name"
+                          />
+                        </div>
+
+                        {renderFileUpload('PERSONAL_LOAN_SANCTION_LETTER', 'Sanction Letter')}
+                        {renderFileUpload('PERSONAL_LOAN_DISBURSEMENT_LETTER', 'Disbursement Letter')}
+                        {renderFileUpload('PERSONAL_LOAN_AGREEMENT', 'Loan Agreement')}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Father Section */}
+                  <div className="bg-slate-50 dark:bg-slate-700/50 p-6 rounded-lg border-2 border-blue-200 dark:border-blue-800">
+                    <h3 className="text-xl font-semibold text-blue-700 dark:text-blue-400 mb-4">Father&apos;s Financial Information</h3>
+                    
+                    <div className="mb-4">
+                      <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">
+                        Is your father salaried or has business?
+                      </label>
+                      <select
+                        className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        value={profile.fatherIncomeType}
+                        onChange={(e) => setProfile({ ...profile, fatherIncomeType: e.target.value })}
+                      >
+                        <option value="">Select an option</option>
+                        <option value="SALARIED">Salaried</option>
+                        <option value="BUSINESS">Business</option>
+                      </select>
+                    </div>
+
+                    {profile.fatherIncomeType === 'SALARIED' && (
+                      <div className="space-y-4 mt-4 pl-4 border-l-4 border-blue-300 dark:border-blue-700">
+                        {renderFileUpload('FATHER_PAN_CARD', 'PAN Card')}
+                        {renderFileUpload('FATHER_ITR', 'Last 3 Years ITR')}
+                        {renderFileUpload('FATHER_ITR_COMPUTATION', 'ITR Computation')}
+                        {renderFileUpload('FATHER_SALARY_ACCOUNT_STATEMENT', 'Last 6 Months Salary Account Statement (merge all PDFs)')}
+                        {renderFileUpload('FATHER_SALARY_SLIPS', 'Salary Slips')}
+                        {renderFileUpload('FATHER_SAVING_ACCOUNT_STATEMENT', 'Saving Account Statement (merge all PDFs)')}
+                        {renderFileUpload('FATHER_FD_RECEIPTS', 'FD Receipts')}
+                        {renderFileUpload('FATHER_BALANCE_CERT_SAVINGS', 'Balance Certificate Savings Account')}
+                        {renderFileUpload('FATHER_BALANCE_CERT_FD', "Balance Certificate of FD's")}
+                      </div>
+                    )}
+
+                    {profile.fatherIncomeType === 'BUSINESS' && (
+                      <div className="space-y-4 mt-4 pl-4 border-l-4 border-blue-300 dark:border-blue-700">
+                        {renderFileUpload('FATHER_PAN_CARD', 'PAN Card')}
+                        {renderFileUpload('FATHER_ITR', 'Last 3 Years ITR')}
+                        {renderFileUpload('FATHER_GST_CERTIFICATE', 'GST Certificate')}
+                        {renderFileUpload('FATHER_BUSINESS_REGISTRATION', 'Business Registration Certificate')}
+                        {renderFileUpload('FATHER_SAVING_ACCOUNT_STATEMENT', 'Saving Account Statement (merge all PDFs)')}
+                        {renderFileUpload('FATHER_FD_RECEIPTS', 'FD Receipts')}
+                        {renderFileUpload('FATHER_BALANCE_CERT_SAVINGS', 'Balance Certificate Savings Account')}
+                        {renderFileUpload('FATHER_BALANCE_CERT_BUSINESS', 'Balance Certificate Business Account')}
+                        {renderFileUpload('FATHER_BALANCE_CERT_FD', "Balance Certificate of FD's")}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Mother Section */}
+                  <div className="bg-slate-50 dark:bg-slate-700/50 p-6 rounded-lg border-2 border-pink-200 dark:border-pink-800">
+                    <h3 className="text-xl font-semibold text-pink-700 dark:text-pink-400 mb-4">Mother&apos;s Financial Information</h3>
+                    
+                    <div className="mb-4">
+                      <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">
+                        Is your mother salaried or has business?
+                      </label>
+                      <select
+                        className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        value={profile.motherIncomeType}
+                        onChange={(e) => setProfile({ ...profile, motherIncomeType: e.target.value })}
+                      >
+                        <option value="">Select an option</option>
+                        <option value="SALARIED">Salaried</option>
+                        <option value="BUSINESS">Business</option>
+                      </select>
+                    </div>
+
+                    {profile.motherIncomeType === 'SALARIED' && (
+                      <div className="space-y-4 mt-4 pl-4 border-l-4 border-pink-300 dark:border-pink-700">
+                        {renderFileUpload('MOTHER_PAN_CARD', 'PAN Card')}
+                        {renderFileUpload('MOTHER_ITR', 'Last 3 Years ITR')}
+                        {renderFileUpload('MOTHER_ITR_COMPUTATION', 'ITR Computation')}
+                        {renderFileUpload('MOTHER_SALARY_ACCOUNT_STATEMENT', 'Last 6 Months Salary Account Statement (merge all PDFs)')}
+                        {renderFileUpload('MOTHER_SALARY_SLIPS', 'Salary Slips')}
+                        {renderFileUpload('MOTHER_SAVING_ACCOUNT_STATEMENT', 'Saving Account Statement (merge all PDFs)')}
+                        {renderFileUpload('MOTHER_FD_RECEIPTS', 'FD Receipts')}
+                        {renderFileUpload('MOTHER_BALANCE_CERT_SAVINGS', 'Balance Certificate Savings Account')}
+                        {renderFileUpload('MOTHER_BALANCE_CERT_FD', "Balance Certificate of FD's")}
+                      </div>
+                    )}
+
+                    {profile.motherIncomeType === 'BUSINESS' && (
+                      <div className="space-y-4 mt-4 pl-4 border-l-4 border-pink-300 dark:border-pink-700">
+                        {renderFileUpload('MOTHER_PAN_CARD', 'PAN Card')}
+                        {renderFileUpload('MOTHER_ITR', 'Last 3 Years ITR')}
+                        {renderFileUpload('MOTHER_GST_CERTIFICATE', 'GST Certificate')}
+                        {renderFileUpload('MOTHER_BUSINESS_REGISTRATION', 'Business Registration Certificate')}
+                        {renderFileUpload('MOTHER_SAVING_ACCOUNT_STATEMENT', 'Saving Account Statement (merge all PDFs)')}
+                        {renderFileUpload('MOTHER_FD_RECEIPTS', 'FD Receipts')}
+                        {renderFileUpload('MOTHER_BALANCE_CERT_SAVINGS', 'Balance Certificate Savings Account')}
+                        {renderFileUpload('MOTHER_BALANCE_CERT_BUSINESS', 'Balance Certificate Business Account')}
+                        {renderFileUpload('MOTHER_BALANCE_CERT_FD', "Balance Certificate of FD's")}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Other Sources Section */}
+                  <div className="space-y-6">
+                    <div className="flex justify-between items-center">
+                      <h3 className="text-xl font-semibold text-purple-700 dark:text-purple-400">Other Source Financial Information</h3>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newSource: OtherSource = {
+                            id: Date.now().toString(),
+                            name: '',
+                            relationship: '',
+                            age: '',
+                            dateOfBirth: '',
+                            incomeType: ''
+                          }
+                          setProfile({ ...profile, otherSources: [...profile.otherSources, newSource] })
+                        }}
+                        className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                      >
+                        + Add Other Source
+                      </button>
+                    </div>
+
+                    {profile.otherSources.map((source, index) => (
+                      <div key={source.id} className="bg-slate-50 dark:bg-slate-700/50 p-6 rounded-lg border-2 border-purple-200 dark:border-purple-800">
+                        <div className="flex justify-between items-center mb-4">
+                          <h4 className="text-lg font-semibold text-purple-700 dark:text-purple-400">Other Source #{index + 1}</h4>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setProfile({
+                                ...profile,
+                                otherSources: profile.otherSources.filter((_, i) => i !== index)
+                              })
+                            }}
+                            className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 transition-colors text-sm"
+                          >
+                            Remove
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                          <div>
+                            <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">
+                              Name
+                            </label>
+                            <input
+                              type="text"
+                              value={source.name}
+                              onChange={(e) => {
+                                const updated = [...profile.otherSources]
+                                updated[index].name = e.target.value
+                                setProfile({ ...profile, otherSources: updated })
+                              }}
+                              className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">
+                              Relationship
+                            </label>
+                            <input
+                              type="text"
+                              value={source.relationship}
+                              onChange={(e) => {
+                                const updated = [...profile.otherSources]
+                                updated[index].relationship = e.target.value
+                                setProfile({ ...profile, otherSources: updated })
+                              }}
+                              className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">
+                              Age
+                            </label>
+                            <input
+                              type="number"
+                              value={source.age}
+                              onChange={(e) => {
+                                const updated = [...profile.otherSources]
+                                updated[index].age = e.target.value
+                                setProfile({ ...profile, otherSources: updated })
+                              }}
+                              className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">
+                              Date of Birth
+                            </label>
+                            <input
+                              type="date"
+                              value={source.dateOfBirth}
+                              onChange={(e) => {
+                                const updated = [...profile.otherSources]
+                                updated[index].dateOfBirth = e.target.value
+                                setProfile({ ...profile, otherSources: updated })
+                              }}
+                              className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="mb-4">
+                          <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">
+                            Is this source salaried or has business?
+                          </label>
+                          <select
+                            className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            value={source.incomeType}
+                            onChange={(e) => {
+                              const updated = [...profile.otherSources]
+                              updated[index].incomeType = e.target.value
+                              setProfile({ ...profile, otherSources: updated })
+                            }}
+                          >
+                            <option value="">Select an option</option>
+                            <option value="SALARIED">Salaried</option>
+                            <option value="BUSINESS">Business</option>
+                          </select>
+                        </div>
+
+                        {source.incomeType === 'SALARIED' && (
+                          <div className="space-y-4 mt-4 pl-4 border-l-4 border-purple-300 dark:border-purple-700">
+                            {renderFileUpload(`OTHER_SOURCE_${index}_PAN_CARD`, 'PAN Card')}
+                            {renderFileUpload(`OTHER_SOURCE_${index}_ITR`, 'Last 3 Years ITR')}
+                            {renderFileUpload(`OTHER_SOURCE_${index}_ITR_COMPUTATION`, 'ITR Computation')}
+                            {renderFileUpload(`OTHER_SOURCE_${index}_SALARY_ACCOUNT_STATEMENT`, 'Last 6 Months Salary Account Statement (merge all PDFs)')}
+                            {renderFileUpload(`OTHER_SOURCE_${index}_SALARY_SLIPS`, 'Salary Slips')}
+                            {renderFileUpload(`OTHER_SOURCE_${index}_SAVING_ACCOUNT_STATEMENT`, 'Saving Account Statement (merge all PDFs)')}
+                            {renderFileUpload(`OTHER_SOURCE_${index}_FD_RECEIPTS`, 'FD Receipts')}
+                            {renderFileUpload(`OTHER_SOURCE_${index}_BALANCE_CERT_SAVINGS`, 'Balance Certificate Savings Account')}
+                            {renderFileUpload(`OTHER_SOURCE_${index}_BALANCE_CERT_FD`, "Balance Certificate of FD's")}
+                          </div>
+                        )}
+
+                        {source.incomeType === 'BUSINESS' && (
+                          <div className="space-y-4 mt-4 pl-4 border-l-4 border-purple-300 dark:border-purple-700">
+                            {renderFileUpload(`OTHER_SOURCE_${index}_PAN_CARD`, 'PAN Card')}
+                            {renderFileUpload(`OTHER_SOURCE_${index}_ITR`, 'Last 3 Years ITR')}
+                            {renderFileUpload(`OTHER_SOURCE_${index}_GST_CERTIFICATE`, 'GST Certificate')}
+                            {renderFileUpload(`OTHER_SOURCE_${index}_BUSINESS_REGISTRATION`, 'Business Registration Certificate')}
+                            {renderFileUpload(`OTHER_SOURCE_${index}_SAVING_ACCOUNT_STATEMENT`, 'Saving Account Statement (merge all PDFs)')}
+                            {renderFileUpload(`OTHER_SOURCE_${index}_FD_RECEIPTS`, 'FD Receipts')}
+                            {renderFileUpload(`OTHER_SOURCE_${index}_BALANCE_CERT_SAVINGS`, 'Balance Certificate Savings Account')}
+                            {renderFileUpload(`OTHER_SOURCE_${index}_BALANCE_CERT_BUSINESS`, 'Balance Certificate Business Account')}
+                            {renderFileUpload(`OTHER_SOURCE_${index}_BALANCE_CERT_FD`, "Balance Certificate of FD's")}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
 

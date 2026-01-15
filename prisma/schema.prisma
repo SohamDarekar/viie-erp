@@ -102,7 +102,11 @@ model Student {
   
   // Test Scores
   greTaken   Boolean? @default(false)
+  greScore   String?
   toeflTaken Boolean? @default(false)
+  toeflScore String?
+  languageTest String? // IELTS, PTE, Duolingo
+  languageTestScore String?
 
   // Travel History
   travelHistory Json? // Array of {startDate, endDate, country, reason}
@@ -120,6 +124,19 @@ model Student {
   // Profile Status
   hasCompletedOnboarding Boolean @default(false)
   hasWorkExperience      Boolean @default(false)
+
+  // Financial Information
+  // Personal
+  personalEverEmployed String? // 'YES' or 'NO'
+  personalTakingLoan String? // 'YES' or 'NO'
+  personalLoanAmount String?
+  personalLoanBankName String?
+  // Mother
+  motherIncomeType String? // 'SALARIED' or 'BUSINESS'
+  // Father
+  fatherIncomeType String? // 'SALARIED' or 'BUSINESS'
+  // Other Sources (array of {name, relationship, age, dateOfBirth, incomeType})
+  otherSources Json? // Array of other income sources with details
 
   // Timestamps
   createdAt  DateTime  @default(now())
@@ -257,6 +274,9 @@ model Document {
   fileSize   Int // Bytes
   mimeType   String
 
+  // For tracking which "other source" this document belongs to (if applicable)
+  otherSourceIndex Int? // Index in the otherSources array
+
   // Document verification
   isVerified Boolean   @default(false)
   verifiedBy String? // Admin user ID
@@ -284,7 +304,62 @@ enum DocumentType {
   TRANSCRIPT
   MARKSHEET_10TH
   MARKSHEET_12TH
+  GRE_SCORECARD
+  TOEFL_SCORECARD
+  LANGUAGE_TEST_SCORECARD
   OTHER
+  // Financial Documents - Personal
+  PERSONAL_PAN_CARD
+  PERSONAL_ITR
+  PERSONAL_SALARY_SLIPS
+  PERSONAL_SALARY_ACCOUNT_STATEMENT
+  PERSONAL_SAVING_ACCOUNT_STATEMENT
+  PERSONAL_FD_RECEIPTS
+  PERSONAL_BALANCE_CERT_SAVINGS
+  PERSONAL_BALANCE_CERT_BUSINESS
+  PERSONAL_BALANCE_CERT_FD
+  PERSONAL_LOAN_SANCTION_LETTER
+  PERSONAL_LOAN_DISBURSEMENT_LETTER
+  PERSONAL_LOAN_AGREEMENT
+  // Financial Documents - Mother
+  MOTHER_PAN_CARD
+  MOTHER_ITR
+  MOTHER_ITR_COMPUTATION
+  MOTHER_SALARY_ACCOUNT_STATEMENT
+  MOTHER_SALARY_SLIPS
+  MOTHER_SAVING_ACCOUNT_STATEMENT
+  MOTHER_FD_RECEIPTS
+  MOTHER_BALANCE_CERT_SAVINGS
+  MOTHER_BALANCE_CERT_BUSINESS
+  MOTHER_BALANCE_CERT_FD
+  MOTHER_GST_CERTIFICATE
+  MOTHER_BUSINESS_REGISTRATION
+  // Financial Documents - Father
+  FATHER_PAN_CARD
+  FATHER_ITR
+  FATHER_ITR_COMPUTATION
+  FATHER_SALARY_ACCOUNT_STATEMENT
+  FATHER_SALARY_SLIPS
+  FATHER_SAVING_ACCOUNT_STATEMENT
+  FATHER_FD_RECEIPTS
+  FATHER_BALANCE_CERT_SAVINGS
+  FATHER_BALANCE_CERT_BUSINESS
+  FATHER_BALANCE_CERT_FD
+  FATHER_GST_CERTIFICATE
+  FATHER_BUSINESS_REGISTRATION
+  // Financial Documents - Other
+  OTHER_SOURCE_PAN_CARD
+  OTHER_SOURCE_ITR
+  OTHER_SOURCE_ITR_COMPUTATION
+  OTHER_SOURCE_SALARY_ACCOUNT_STATEMENT
+  OTHER_SOURCE_SALARY_SLIPS
+  OTHER_SOURCE_SAVING_ACCOUNT_STATEMENT
+  OTHER_SOURCE_FD_RECEIPTS
+  OTHER_SOURCE_BALANCE_CERT_SAVINGS
+  OTHER_SOURCE_BALANCE_CERT_BUSINESS
+  OTHER_SOURCE_BALANCE_CERT_FD
+  OTHER_SOURCE_GST_CERTIFICATE
+  OTHER_SOURCE_BUSINESS_REGISTRATION
 }
 
 // ======================

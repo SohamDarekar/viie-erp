@@ -54,7 +54,26 @@ const updateProfileSchema = z.object({
   bachelorsEndDate: z.string().optional(),
   bachelorsGrade: z.string().optional(),
   greTaken: z.boolean().optional(),
+  greScore: z.string().optional(),
   toeflTaken: z.boolean().optional(),
+  toeflScore: z.string().optional(),
+  languageTest: z.string().optional(),
+  languageTestScore: z.string().optional(),
+  // Financial fields
+  personalEverEmployed: z.string().optional(),
+  personalTakingLoan: z.string().optional(),
+  personalLoanAmount: z.string().optional(),
+  personalLoanBankName: z.string().optional(),
+  motherIncomeType: z.string().optional(),
+  fatherIncomeType: z.string().optional(),
+  otherSources: z.array(z.object({
+    id: z.string(),
+    name: z.string(),
+    relationship: z.string(),
+    age: z.string(),
+    dateOfBirth: z.string(),
+    incomeType: z.string(),
+  })).optional(),
   // Work experience fields
   hasWorkExperience: z.boolean().optional(),
   workExperiences: z.array(z.object({
@@ -205,6 +224,14 @@ export async function PUT(req: NextRequest) {
         ...(data.bachelorsGrade !== undefined && { bachelorsGrade: data.bachelorsGrade }),
         ...(data.greTaken !== undefined && { greTaken: data.greTaken }),
         ...(data.toeflTaken !== undefined && { toeflTaken: data.toeflTaken }),
+        // Financial fields
+        ...(data.personalEverEmployed !== undefined && { personalEverEmployed: data.personalEverEmployed }),
+        ...(data.personalTakingLoan !== undefined && { personalTakingLoan: data.personalTakingLoan }),
+        ...(data.personalLoanAmount !== undefined && { personalLoanAmount: data.personalLoanAmount }),
+        ...(data.personalLoanBankName !== undefined && { personalLoanBankName: data.personalLoanBankName }),
+        ...(data.motherIncomeType !== undefined && { motherIncomeType: data.motherIncomeType }),
+        ...(data.fatherIncomeType !== undefined && { fatherIncomeType: data.fatherIncomeType }),
+        ...(data.otherSources !== undefined && { otherSources: data.otherSources }),
         ...(data.hasWorkExperience !== undefined && { hasWorkExperience: data.hasWorkExperience }),
       },
       include: {
