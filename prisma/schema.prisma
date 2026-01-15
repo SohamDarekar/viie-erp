@@ -92,6 +92,7 @@ model Student {
   highSchoolGrade     String? // Percentage
   
   // Bachelor's Degree
+  bachelorsCompleted    Boolean? @default(false)
   bachelorsIn           String?
   bachelorsFromInstitute String?
   bachelorsCountry      String?
@@ -387,6 +388,11 @@ enum DocumentType {
   OTHER_SOURCE_BALANCE_CERT_FD
   OTHER_SOURCE_GST_CERTIFICATE
   OTHER_SOURCE_BUSINESS_REGISTRATION
+  // Document Section Files
+  AFFIDAVIT
+  CV_RESUME
+  SOP
+  OLD_PASSPORT
 }
 
 // ======================

@@ -97,6 +97,7 @@ interface ProfileData {
   highSchoolStartDate: string
   highSchoolEndDate: string
   highSchoolGrade: string
+  bachelorsCompleted: boolean
   bachelorsIn: string
   bachelorsFromInstitute: string
   bachelorsCountry: string
@@ -219,6 +220,7 @@ export default function ProfilePage() {
     highSchoolStartDate: '',
     highSchoolEndDate: '',
     highSchoolGrade: '',
+    bachelorsCompleted: false,
     bachelorsIn: '',
     bachelorsFromInstitute: '',
     bachelorsCountry: '',
@@ -292,6 +294,7 @@ export default function ProfilePage() {
         highSchoolStartDate: student.highSchoolStartDate ? new Date(student.highSchoolStartDate).toISOString().split('T')[0] : '',
         highSchoolEndDate: student.highSchoolEndDate ? new Date(student.highSchoolEndDate).toISOString().split('T')[0] : '',
         highSchoolGrade: student.highSchoolGrade || '',
+        bachelorsCompleted: student.bachelorsCompleted || false,
         bachelorsIn: student.bachelorsIn || '',
         bachelorsFromInstitute: student.bachelorsFromInstitute || '',
         bachelorsCountry: student.bachelorsCountry || '',
@@ -383,8 +386,10 @@ export default function ProfilePage() {
           } else if (doc.type === 'LANGUAGE_TEST_SCORECARD') {
             docs.languageTestScorecard = { id: doc.id, fileName: doc.fileName }
           } else if (doc.type.startsWith('PERSONAL_') || doc.type.startsWith('MOTHER_') || 
-                     doc.type.startsWith('FATHER_') || doc.type.startsWith('OTHER_SOURCE_')) {
-            // Financial documents
+                     doc.type.startsWith('FATHER_') || doc.type.startsWith('OTHER_SOURCE_') ||
+                     doc.type === 'AFFIDAVIT' || doc.type === 'CV_RESUME' || 
+                     doc.type === 'SOP' || doc.type === 'OLD_PASSPORT') {
+            // Financial and document section files
             // Rebuild composite key for other source documents
             let key = doc.type
             if (doc.type.startsWith('OTHER_SOURCE_') && doc.otherSourceIndex !== null && doc.otherSourceIndex !== undefined) {
@@ -1226,6 +1231,18 @@ export default function ProfilePage() {
                   {/* Bachelor's Degree */}
                   <div className="bg-slate-50 dark:bg-slate-700/50 p-6 rounded-lg">
                     <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-200 mb-4">Bachelor&apos;s Degree</h3>
+                    <div className="mb-6">
+                      <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">Have you completed your Bachelor&apos;s?</label>
+                      <select
+                        value={profile.bachelorsCompleted ? 'yes' : 'no'}
+                        onChange={(e) => setProfile({ ...profile, bachelorsCompleted: e.target.value === 'yes' })}
+                        className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      >
+                        <option value="no">No</option>
+                        <option value="yes">Yes</option>
+                      </select>
+                    </div>
+                    {profile.bachelorsCompleted && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div>
                         <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">Bachelors In</label>
@@ -1254,16 +1271,6 @@ export default function ProfilePage() {
                           value={profile.bachelorsCountry}
                           onChange={(e) => setProfile({ ...profile, bachelorsCountry: e.target.value })}
                           placeholder="Enter your bachelor&apos;s degree country"
-                          className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">Bachelors Address</label>
-                        <input
-                          type="text"
-                          value={profile.bachelorsAddress}
-                          onChange={(e) => setProfile({ ...profile, bachelorsAddress: e.target.value })}
-                          placeholder="Enter your bachelor&apos;s degree address"
                           className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         />
                       </div>
@@ -1298,6 +1305,7 @@ export default function ProfilePage() {
                         />
                       </div>
                     </div>
+                    )}
                   </div>
 
                   {/* Test Scores */}
@@ -2565,10 +2573,18 @@ export default function ProfilePage() {
               {/* Documents Tab */}
               {activeTab === 'documents' && formVisibility.documents && (
                 <div className="space-y-6">
-                  <h2 className="text-2xl font-bold text-indigo-600">Documents</h2>
-                  <div className="text-center py-12 text-gray-500">
-                    <p className="text-lg">Document management coming soon...</p>
-                    <p className="text-sm mt-2">This section will allow you to upload and manage your documents.</p>
+                  <h2 className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">Documents</h2>
+                  <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
+                    Please upload all documents as PDF files only.
+                  </p>
+
+                  <div className="bg-slate-50 dark:bg-slate-700/50 p-6 rounded-lg border-2 border-indigo-200 dark:border-indigo-800">
+                    <h3 className="text-xl font-semibold text-indigo-700 dark:text-indigo-400 mb-4">Required Documents</h3>
+                    
+                    {renderFileUpload('AFFIDAVIT', 'Affidavits')}
+                    {renderFileUpload('CV_RESUME', 'CV / Resume *')}
+                    {renderFileUpload('SOP', 'Statement of Purpose (SOP) *')}
+                    {renderFileUpload('OLD_PASSPORT', 'Old Passport (if applicable)')}
                   </div>
                 </div>
               )}
