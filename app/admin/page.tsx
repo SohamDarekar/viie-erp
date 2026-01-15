@@ -879,7 +879,7 @@ export default function AdminDashboard() {
                   setError('')
                   setSuccess('')
                   // Load student profiles when forms tab is clicked
-                  if (tab.id === 'forms' && studentProfiles.length === 0) {
+                  if (tab.id === 'forms') {
                     loadStudentProfiles()
                   }
                 }}
@@ -2502,6 +2502,157 @@ export default function AdminDashboard() {
                             <p className="text-xs font-semibold text-slate-500">Grade</p>
                             <p className="text-slate-800">{selectedStudentProfile.bachelorsGrade || 'N/A'}</p>
                           </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Work Experience */}
+              {selectedStudentProfile.workExperiences && selectedStudentProfile.workExperiences.length > 0 && (
+                <div>
+                  <h4 className="text-lg font-bold text-slate-800 mb-3 flex items-center">
+                    <svg className="w-5 h-5 mr-2 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                    Work Experience
+                  </h4>
+                  <div className="space-y-3">
+                    {selectedStudentProfile.workExperiences.map((exp: any, index: number) => (
+                      <div key={exp.id} className="bg-slate-50 p-4 rounded-lg">
+                        <p className="font-semibold text-slate-700 mb-2">Experience {index + 1}</p>
+                        <div className="grid grid-cols-2 gap-3 text-sm">
+                          <div>
+                            <p className="text-xs font-semibold text-slate-500">Job Title</p>
+                            <p className="text-slate-800">{exp.jobTitle}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs font-semibold text-slate-500">Organization</p>
+                            <p className="text-slate-800">{exp.organizationName}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs font-semibold text-slate-500">Start Date</p>
+                            <p className="text-slate-800">{new Date(exp.startDate).toLocaleDateString()}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs font-semibold text-slate-500">End Date</p>
+                            <p className="text-slate-800">{new Date(exp.endDate).toLocaleDateString()}</p>
+                          </div>
+                          {exp.organizationAddress && (
+                            <div className="col-span-2">
+                              <p className="text-xs font-semibold text-slate-500">Address</p>
+                              <p className="text-slate-800">{exp.organizationAddress}</p>
+                            </div>
+                          )}
+                          {exp.organizationContact && (
+                            <div>
+                              <p className="text-xs font-semibold text-slate-500">Contact</p>
+                              <p className="text-slate-800">{exp.organizationContact}</p>
+                            </div>
+                          )}
+                          {exp.reference && (
+                            <div className="col-span-2 mt-2 pt-2 border-t border-slate-200">
+                              <p className="text-xs font-semibold text-slate-600 mb-2">Reference</p>
+                              <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                  <p className="text-xs font-semibold text-slate-500">Name</p>
+                                  <p className="text-slate-800 text-sm">{exp.reference.name}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs font-semibold text-slate-500">Position</p>
+                                  <p className="text-slate-800 text-sm">{exp.reference.position}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs font-semibold text-slate-500">Email</p>
+                                  <p className="text-slate-800 text-sm">{exp.reference.workEmail}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs font-semibold text-slate-500">Phone</p>
+                                  <p className="text-slate-800 text-sm">{exp.reference.phone}</p>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Financial Information */}
+              {(selectedStudentProfile.personalEverEmployed || selectedStudentProfile.personalTakingLoan || 
+                selectedStudentProfile.motherIncomeType || selectedStudentProfile.fatherIncomeType || 
+                selectedStudentProfile.otherSources) && (
+                <div>
+                  <h4 className="text-lg font-bold text-slate-800 mb-3 flex items-center">
+                    <svg className="w-5 h-5 mr-2 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Financial Information
+                  </h4>
+                  <div className="bg-slate-50 p-4 rounded-lg space-y-3">
+                    {selectedStudentProfile.personalEverEmployed && (
+                      <div>
+                        <p className="text-xs font-semibold text-slate-500 uppercase">Ever Employed</p>
+                        <p className="text-slate-800">{selectedStudentProfile.personalEverEmployed}</p>
+                      </div>
+                    )}
+                    {selectedStudentProfile.personalTakingLoan && (
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <p className="text-xs font-semibold text-slate-500 uppercase">Taking Loan</p>
+                          <p className="text-slate-800">{selectedStudentProfile.personalTakingLoan}</p>
+                        </div>
+                        {selectedStudentProfile.personalLoanAmount && (
+                          <div>
+                            <p className="text-xs font-semibold text-slate-500 uppercase">Loan Amount</p>
+                            <p className="text-slate-800">{selectedStudentProfile.personalLoanAmount}</p>
+                          </div>
+                        )}
+                        {selectedStudentProfile.personalLoanBankName && (
+                          <div>
+                            <p className="text-xs font-semibold text-slate-500 uppercase">Bank Name</p>
+                            <p className="text-slate-800">{selectedStudentProfile.personalLoanBankName}</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {selectedStudentProfile.motherIncomeType && (
+                      <div>
+                        <p className="text-xs font-semibold text-slate-500 uppercase">Mother&apos;s Income Type</p>
+                        <p className="text-slate-800">{selectedStudentProfile.motherIncomeType}</p>
+                      </div>
+                    )}
+                    {selectedStudentProfile.fatherIncomeType && (
+                      <div>
+                        <p className="text-xs font-semibold text-slate-500 uppercase">Father&apos;s Income Type</p>
+                        <p className="text-slate-800">{selectedStudentProfile.fatherIncomeType}</p>
+                      </div>
+                    )}
+                    {selectedStudentProfile.otherSources && Array.isArray(selectedStudentProfile.otherSources) && selectedStudentProfile.otherSources.length > 0 && (
+                      <div>
+                        <p className="text-xs font-semibold text-slate-500 uppercase mb-2">Other Income Sources</p>
+                        <div className="space-y-2">
+                          {selectedStudentProfile.otherSources.map((source: any, index: number) => (
+                            <div key={index} className="bg-white p-3 rounded border border-slate-200">
+                              <div className="grid grid-cols-2 gap-2 text-sm">
+                                <div>
+                                  <p className="text-xs font-semibold text-slate-500">Name</p>
+                                  <p className="text-slate-800">{source.name}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs font-semibold text-slate-500">Relationship</p>
+                                  <p className="text-slate-800">{source.relationship}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs font-semibold text-slate-500">Income Type</p>
+                                  <p className="text-slate-800">{source.incomeType}</p>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       </div>
                     )}

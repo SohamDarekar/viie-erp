@@ -57,6 +57,11 @@ export async function GET(req: NextRequest) {
               isVerified: true,
             },
           },
+          workExperiences: {
+            include: {
+              reference: true,
+            },
+          },
         },
         orderBy: {
           createdAt: 'desc',
