@@ -24,6 +24,15 @@ const updateProfileSchema = z.object({
   passportExpiryDate: z.string().optional(),
   address: z.string().optional(),
   postalCode: z.string().optional(),
+  // Travel fields
+  travelHistory: z.array(z.object({
+    startDate: z.string(),
+    endDate: z.string(),
+    country: z.string(),
+    reason: z.string(),
+  })).optional(),
+  visaRefused: z.boolean().optional(),
+  visaRefusedCountry: z.string().optional(),
   // Education fields
   school: z.string().optional(),
   schoolCountry: z.string().optional(),
@@ -46,6 +55,28 @@ const updateProfileSchema = z.object({
   bachelorsGrade: z.string().optional(),
   greTaken: z.boolean().optional(),
   toeflTaken: z.boolean().optional(),
+  // Work experience fields
+  hasWorkExperience: z.boolean().optional(),
+  workExperiences: z.array(z.object({
+    jobTitle: z.string().min(1),
+    organizationName: z.string().min(1),
+    organizationAddress: z.string().optional(),
+    organizationContact: z.string().optional(),
+    startDate: z.string(),
+    endDate: z.string(),
+    hasReference: z.boolean(),
+    reference: z.object({
+      name: z.string().min(1),
+      position: z.string().min(1),
+      title: z.string().optional(),
+      workEmail: z.string().email(),
+      phone: z.string().min(1),
+      durationKnown: z.string().optional(),
+      relationship: z.string().optional(),
+      institution: z.string().optional(),
+      institutionAddress: z.string().optional(),
+    }).optional(),
+  })).optional(),
 })
 
 export async function GET(req: NextRequest) {
@@ -66,6 +97,11 @@ export async function GET(req: NextRequest) {
         user: {
           select: {
             email: true,
+          },
+        },
+        workExperiences: {
+          include: {
+            reference: true,
           },
         },
       },
@@ -120,6 +156,7 @@ export async function PUT(req: NextRequest) {
     const body = await req.json()
     const data = updateProfileSchema.parse(body)
 
+    // Update student profile
     const updatedStudent = await prisma.student.update({
       where: { id: student.id },
       data: {
@@ -142,6 +179,10 @@ export async function PUT(req: NextRequest) {
         ...(data.passportExpiryDate && { passportExpiryDate: new Date(data.passportExpiryDate) }),
         ...(data.address !== undefined && { address: data.address }),
         ...(data.postalCode !== undefined && { postalCode: data.postalCode }),
+        // Travel fields
+        ...(data.travelHistory !== undefined && { travelHistory: data.travelHistory }),
+        ...(data.visaRefused !== undefined && { visaRefused: data.visaRefused }),
+        ...(data.visaRefusedCountry !== undefined && { visaRefusedCountry: data.visaRefusedCountry }),
         // Education fields
         ...(data.school !== undefined && { school: data.school }),
         ...(data.schoolCountry !== undefined && { schoolCountry: data.schoolCountry }),
@@ -164,11 +205,60 @@ export async function PUT(req: NextRequest) {
         ...(data.bachelorsGrade !== undefined && { bachelorsGrade: data.bachelorsGrade }),
         ...(data.greTaken !== undefined && { greTaken: data.greTaken }),
         ...(data.toeflTaken !== undefined && { toeflTaken: data.toeflTaken }),
+        ...(data.hasWorkExperience !== undefined && { hasWorkExperience: data.hasWorkExperience }),
       },
       include: {
         batch: true,
       },
     })
+
+    // Handle work experience updates
+    if (data.hasWorkExperience !== undefined) {
+      if (!data.hasWorkExperience) {
+        // Delete all existing work experiences if user now has no experience
+        await prisma.workExperience.deleteMany({
+          where: { studentId: student.id },
+        })
+      } else if (data.workExperiences && data.workExperiences.length > 0) {
+        // Delete existing work experiences and create new ones
+        await prisma.workExperience.deleteMany({
+          where: { studentId: student.id },
+        })
+
+        // Create new work experiences
+        for (const workExp of data.workExperiences) {
+          const createdWorkExp = await prisma.workExperience.create({
+            data: {
+              studentId: student.id,
+              jobTitle: workExp.jobTitle,
+              organizationName: workExp.organizationName,
+              organizationAddress: workExp.organizationAddress,
+              organizationContact: workExp.organizationContact,
+              startDate: new Date(workExp.startDate),
+              endDate: new Date(workExp.endDate),
+            },
+          })
+
+          // Create reference if provided
+          if (workExp.hasReference && workExp.reference) {
+            await prisma.reference.create({
+              data: {
+                workExperienceId: createdWorkExp.id,
+                name: workExp.reference.name,
+                position: workExp.reference.position,
+                title: workExp.reference.title,
+                workEmail: workExp.reference.workEmail,
+                phone: workExp.reference.phone,
+                durationKnown: workExp.reference.durationKnown,
+                relationship: workExp.reference.relationship,
+                institution: workExp.reference.institution,
+                institutionAddress: workExp.reference.institutionAddress,
+              },
+            })
+          }
+        }
+      }
+    }
 
     // Audit log
     await createAuditLog({

@@ -5,6 +5,27 @@ import { requireAuth } from '@/lib/auth'
 import { assignStudentToBatch } from '@/lib/batch'
 import { createAuditLog } from '@/lib/audit'
 
+const workExperienceSchema = z.object({
+  jobTitle: z.string().min(1),
+  organizationName: z.string().min(1),
+  organizationAddress: z.string().optional(),
+  organizationContact: z.string().optional(),
+  startDate: z.string(),
+  endDate: z.string(),
+  hasReference: z.boolean(),
+  reference: z.object({
+    name: z.string().min(1),
+    position: z.string().min(1),
+    title: z.string().optional(),
+    workEmail: z.string().email(),
+    phone: z.string().min(1),
+    durationKnown: z.string().optional(),
+    relationship: z.string().optional(),
+    institution: z.string().optional(),
+    institutionAddress: z.string().optional(),
+  }).optional(),
+})
+
 const onboardingSchema = z.object({
   firstName: z.string().min(1),
   lastName: z.string().min(1),
@@ -27,6 +48,8 @@ const onboardingSchema = z.object({
   postalCode: z.string().optional(),
   program: z.enum(['BS', 'BBA']),
   intakeYear: z.number().int().min(2020),
+  hasWorkExperience: z.boolean().optional(),
+  workExperiences: z.array(workExperienceSchema).optional(),
 })
 
 export async function POST(req: NextRequest) {
@@ -70,6 +93,7 @@ export async function POST(req: NextRequest) {
       intakeYear: data.intakeYear,
       batchId,
       hasCompletedOnboarding: true,
+      hasWorkExperience: data.hasWorkExperience || false,
     }
     
     // Add optional fields only if they exist
@@ -94,6 +118,44 @@ export async function POST(req: NextRequest) {
     const student = await prisma.student.create({
       data: studentData,
     })
+
+    // Create work experiences if provided
+    if (data.workExperiences && data.workExperiences.length > 0) {
+      for (const workExp of data.workExperiences) {
+        const workExperienceData: any = {
+          studentId: student.id,
+          jobTitle: workExp.jobTitle,
+          organizationName: workExp.organizationName,
+          organizationAddress: workExp.organizationAddress,
+          organizationContact: workExp.organizationContact,
+          startDate: new Date(workExp.startDate),
+          endDate: new Date(workExp.endDate),
+        }
+
+        // Create work experience
+        const createdWorkExp = await prisma.workExperience.create({
+          data: workExperienceData,
+        })
+
+        // Create reference if provided
+        if (workExp.hasReference && workExp.reference) {
+          await prisma.reference.create({
+            data: {
+              workExperienceId: createdWorkExp.id,
+              name: workExp.reference.name,
+              position: workExp.reference.position,
+              title: workExp.reference.title,
+              workEmail: workExp.reference.workEmail,
+              phone: workExp.reference.phone,
+              durationKnown: workExp.reference.durationKnown,
+              relationship: workExp.reference.relationship,
+              institution: workExp.reference.institution,
+              institutionAddress: workExp.reference.institutionAddress,
+            },
+          })
+        }
+      }
+    }
 
     // Audit log
     await createAuditLog({

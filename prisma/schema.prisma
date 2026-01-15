@@ -104,6 +104,11 @@ model Student {
   greTaken   Boolean? @default(false)
   toeflTaken Boolean? @default(false)
 
+  // Travel History
+  travelHistory Json? // Array of {startDate, endDate, country, reason}
+  visaRefused Boolean? @default(false)
+  visaRefusedCountry String?
+
   // Academic Information
   program    Program
   intakeYear Int
@@ -114,6 +119,7 @@ model Student {
 
   // Profile Status
   hasCompletedOnboarding Boolean @default(false)
+  hasWorkExperience      Boolean @default(false)
 
   // Timestamps
   createdAt  DateTime  @default(now())
@@ -121,8 +127,9 @@ model Student {
   archivedAt DateTime? // For soft delete
 
   // Relationships
-  documents Document[]
-  tasks     TaskAssignment[]
+  documents       Document[]
+  tasks           TaskAssignment[]
+  workExperiences WorkExperience[]
 
   @@index([batchId])
   @@map("students")
@@ -131,6 +138,79 @@ model Student {
 enum Program {
   BS
   BBA
+}
+
+// ======================
+// WORK EXPERIENCE & REFERENCES
+// ======================
+
+model WorkExperience {
+  id        String  @id @default(auto()) @map("_id") @db.ObjectId
+  studentId String  @db.ObjectId
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  // Job Details
+  jobTitle             String
+  organizationName     String
+  organizationAddress  String?
+  organizationContact  String?
+  startDate            DateTime
+  endDate              DateTime
+
+  // Certificate
+  certificateFileName   String? // Original filename
+  certificateStoredPath String? // Server file path
+  certificateFileSize   Int? // Bytes
+  certificateMimeType   String?
+
+  // Letter of Recommendation
+  lorFileName   String? // Original filename
+  lorStoredPath String? // Server file path
+  lorFileSize   Int? // Bytes
+  lorMimeType   String?
+
+  // Salary Slip
+  salarySlipFileName   String? // Original filename
+  salarySlipStoredPath String? // Server file path
+  salarySlipFileSize   Int? // Bytes
+  salarySlipMimeType   String?
+
+  // Reference (embedded - can be null if no reference)
+  reference Reference?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([studentId])
+  @@map("work_experiences")
+}
+
+model Reference {
+  id               String         @id @default(auto()) @map("_id") @db.ObjectId
+  workExperienceId String         @unique @db.ObjectId
+  workExperience   WorkExperience @relation(fields: [workExperienceId], references: [id], onDelete: Cascade)
+
+  // Reference Details
+  name                    String
+  position                String
+  title                   String?
+  workEmail               String
+  phone                   String
+  durationKnown           String?
+  relationship            String?
+  institution             String?
+  institutionAddress      String?
+
+  // Reference Document
+  documentFileName   String? // Original filename
+  documentStoredPath String? // Server file path
+  documentFileSize   Int? // Bytes
+  documentMimeType   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("references")
 }
 
 // ======================
@@ -196,6 +276,8 @@ model Document {
 
 enum DocumentType {
   PASSPORT
+  AADHAR_CARD
+  DRIVERS_LICENSE
   IELTS
   VISA
   I20

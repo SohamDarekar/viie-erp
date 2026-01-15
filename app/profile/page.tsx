@@ -17,7 +17,38 @@ import {
   FaCheckCircle 
 } from 'react-icons/fa'
 
-type Tab = 'personal' | 'education' | 'travel' | 'visa' | 'references' | 'work' | 'documents' | 'course' | 'university' | 'post-admission'
+type Tab = 'personal' | 'education' | 'travel' | 'work' | 'documents' | 'course' | 'university' | 'post-admission'
+
+type WorkExperience = {
+  id: string
+  jobTitle: string
+  organizationName: string
+  organizationAddress: string
+  organizationContact: string
+  startDate: string
+  endDate: string
+  hasReference: string
+  referenceName: string
+  referencePosition: string
+  referenceTitle: string
+  referenceWorkEmail: string
+  referenceDurationKnown: string
+  referencePhone: string
+  referenceRelationship: string
+  referenceInstitution: string
+  referenceInstitutionAddress: string
+  certificateFile: File | null
+  lorFile: File | null
+  salarySlipFile: File | null
+  referenceDocumentFile: File | null
+}
+
+interface TravelEntry {
+  startDate: string
+  endDate: string
+  country: string
+  reason: string
+}
 
 interface ProfileData {
   firstName: string
@@ -39,6 +70,10 @@ interface ProfileData {
   program: string
   intakeYear: number
   batchName: string
+  // Travel fields
+  travelHistory: TravelEntry[]
+  visaRefused: boolean
+  visaRefusedCountry: string
   // Education fields
   school: string
   schoolCountry: string
@@ -67,8 +102,6 @@ const TABS: { id: Tab; label: string; icon: JSX.Element }[] = [
   { id: 'personal', label: 'Personal Details', icon: <FaUser /> },
   { id: 'education', label: 'Education', icon: <FaGraduationCap /> },
   { id: 'travel', label: 'Travel', icon: <FaPlane /> },
-  { id: 'visa', label: 'Visa', icon: <FaClipboardList /> },
-  { id: 'references', label: 'References', icon: <FaAddressCard /> },
   { id: 'work', label: 'Work Details', icon: <FaBriefcase /> },
   { id: 'documents', label: 'Documents', icon: <FaFileAlt /> },
   { id: 'course', label: 'Course Details', icon: <FaBook /> },
@@ -85,11 +118,18 @@ export default function ProfilePage() {
   const [uploading, setUploading] = useState(false)
   const [marksheet10th, setMarksheet10th] = useState<File | null>(null)
   const [marksheet12th, setMarksheet12th] = useState<File | null>(null)
+  const [passport, setPassport] = useState<File | null>(null)
+  const [aadharCard, setAadharCard] = useState<File | null>(null)
+  const [driversLicense, setDriversLicense] = useState<File | null>(null)
   const [existingDocs, setExistingDocs] = useState<{ 
-    marksheet10th?: { id: string; fileName: string }; 
-    marksheet12th?: { id: string; fileName: string } 
+    marksheet10th?: { id: string; fileName: string };
+    marksheet12th?: { id: string; fileName: string };
+    passport?: { id: string; fileName: string };
+    aadharCard?: { id: string; fileName: string };
+    driversLicense?: { id: string; fileName: string };
   }>({})
-
+  const [hasWorkExperience, setHasWorkExperience] = useState<string>('')
+  const [workExperiences, setWorkExperiences] = useState<WorkExperience[]>([])
 
   const [profile, setProfile] = useState<ProfileData>({
     firstName: '',
@@ -111,6 +151,10 @@ export default function ProfilePage() {
     program: '',
     intakeYear: 2024,
     batchName: '',
+    // Travel fields
+    travelHistory: [],
+    visaRefused: false,
+    visaRefusedCountry: '',
     // Education fields
     school: '',
     schoolCountry: '',
@@ -168,6 +212,10 @@ export default function ProfilePage() {
         program: student.program || '',
         intakeYear: student.intakeYear || 2024,
         batchName: student.batch?.name || '',
+        // Travel fields
+        travelHistory: student.travelHistory || [],
+        visaRefused: student.visaRefused || false,
+        visaRefusedCountry: student.visaRefusedCountry || '',
         // Education fields
         school: student.school || '',
         schoolCountry: student.schoolCountry || '',
@@ -192,6 +240,39 @@ export default function ProfilePage() {
         toeflTaken: student.toeflTaken || false,
       })
 
+      // Load work experiences
+      if (student.hasWorkExperience && student.workExperiences && student.workExperiences.length > 0) {
+        setHasWorkExperience('yes')
+        setWorkExperiences(
+          student.workExperiences.map((exp: any) => ({
+            id: exp.id,
+            jobTitle: exp.jobTitle || '',
+            organizationName: exp.organizationName || '',
+            organizationAddress: exp.organizationAddress || '',
+            organizationContact: exp.organizationContact || '',
+            startDate: exp.startDate ? new Date(exp.startDate).toISOString().split('T')[0] : '',
+            endDate: exp.endDate ? new Date(exp.endDate).toISOString().split('T')[0] : '',
+            hasReference: exp.reference ? 'yes' : 'no',
+            referenceName: exp.reference?.name || '',
+            referencePosition: exp.reference?.position || '',
+            referenceTitle: exp.reference?.title || '',
+            referenceWorkEmail: exp.reference?.workEmail || '',
+            referenceDurationKnown: exp.reference?.durationKnown || '',
+            referencePhone: exp.reference?.phone || '',
+            referenceRelationship: exp.reference?.relationship || '',
+            referenceInstitution: exp.reference?.institution || '',
+            referenceInstitutionAddress: exp.reference?.institutionAddress || '',
+            certificateFile: null,
+            lorFile: null,
+            salarySlipFile: null,
+            referenceDocumentFile: null,
+          }))
+        )
+      } else {
+        setHasWorkExperience(student.hasWorkExperience ? 'no' : '')
+        setWorkExperiences([])
+      }
+
       // Load existing documents
       await loadDocuments()
     } catch (error: any) {
@@ -212,6 +293,12 @@ export default function ProfilePage() {
             docs.marksheet10th = { id: doc.id, fileName: doc.fileName }
           } else if (doc.type === 'MARKSHEET_12TH') {
             docs.marksheet12th = { id: doc.id, fileName: doc.fileName }
+          } else if (doc.type === 'PASSPORT') {
+            docs.passport = { id: doc.id, fileName: doc.fileName }
+          } else if (doc.type === 'AADHAR_CARD') {
+            docs.aadharCard = { id: doc.id, fileName: doc.fileName }
+          } else if (doc.type === 'DRIVERS_LICENSE') {
+            docs.driversLicense = { id: doc.id, fileName: doc.fileName }
           }
         })
         setExistingDocs(docs)
@@ -225,7 +312,7 @@ export default function ProfilePage() {
     window.open(`/api/documents/${docId}`, '_blank')
   }
 
-  const handleRemoveDocument = async (docId: string, type: 'MARKSHEET_10TH' | 'MARKSHEET_12TH') => {
+  const handleRemoveDocument = async (docId: string, type: 'MARKSHEET_10TH' | 'MARKSHEET_12TH' | 'PASSPORT' | 'AADHAR_CARD' | 'DRIVERS_LICENSE') => {
     setUploading(true)
     setAlert(null)
     try {
@@ -247,12 +334,16 @@ export default function ProfilePage() {
     }
   }
 
-  const handleFileUpload = async (file: File, type: 'MARKSHEET_10TH' | 'MARKSHEET_12TH') => {
+  const handleFileUpload = async (file: File, type: 'MARKSHEET_10TH' | 'MARKSHEET_12TH' | 'PASSPORT' | 'AADHAR_CARD' | 'DRIVERS_LICENSE') => {
     setUploading(true)
     setAlert(null)
     try {
       // If there's an existing document, delete it first
-      const existingDoc = type === 'MARKSHEET_10TH' ? existingDocs.marksheet10th : existingDocs.marksheet12th
+      const existingDoc = type === 'MARKSHEET_10TH' ? existingDocs.marksheet10th 
+                        : type === 'MARKSHEET_12TH' ? existingDocs.marksheet12th
+                        : type === 'PASSPORT' ? existingDocs.passport
+                        : type === 'AADHAR_CARD' ? existingDocs.aadharCard
+                        : existingDocs.driversLicense
       if (existingDoc) {
         const deleteRes = await fetch(`/api/documents/${existingDoc.id}`, {
           method: 'DELETE',
@@ -283,8 +374,14 @@ export default function ProfilePage() {
       // Clear file input
       if (type === 'MARKSHEET_10TH') {
         setMarksheet10th(null)
-      } else {
+      } else if (type === 'MARKSHEET_12TH') {
         setMarksheet12th(null)
+      } else if (type === 'PASSPORT') {
+        setPassport(null)
+      } else if (type === 'AADHAR_CARD') {
+        setAadharCard(null)
+      } else if (type === 'DRIVERS_LICENSE') {
+        setDriversLicense(null)
       }
     } catch (error: any) {
       setAlert({ type: 'error', message: error.message })
@@ -301,10 +398,36 @@ export default function ProfilePage() {
     setSaving(true)
     setAlert(null)
     try {
+      // Prepare work experiences data (without file objects for now)
+      const workExperiencesData = workExperiences.map(exp => ({
+        jobTitle: exp.jobTitle,
+        organizationName: exp.organizationName,
+        organizationAddress: exp.organizationAddress || undefined,
+        organizationContact: exp.organizationContact || undefined,
+        startDate: exp.startDate,
+        endDate: exp.endDate,
+        hasReference: exp.hasReference === 'yes',
+        reference: exp.hasReference === 'yes' ? {
+          name: exp.referenceName,
+          position: exp.referencePosition,
+          title: exp.referenceTitle || undefined,
+          workEmail: exp.referenceWorkEmail,
+          phone: exp.referencePhone,
+          durationKnown: exp.referenceDurationKnown || undefined,
+          relationship: exp.referenceRelationship || undefined,
+          institution: exp.referenceInstitution || undefined,
+          institutionAddress: exp.referenceInstitutionAddress || undefined,
+        } : undefined,
+      }))
+
       const res = await fetch('/api/student/profile', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(profile),
+        body: JSON.stringify({
+          ...profile,
+          hasWorkExperience: hasWorkExperience === 'yes',
+          workExperiences: hasWorkExperience === 'yes' ? workExperiencesData : undefined,
+        }),
       })
 
       if (!res.ok) {
@@ -538,6 +661,141 @@ export default function ProfilePage() {
                         placeholder="Enter your postal code"
                         className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
                       />
+                    </div>
+                  </div>
+
+                  {/* Document Uploads Section */}
+                  <div className="mt-8 pt-6 border-t border-slate-200 dark:border-slate-600">
+                    <h3 className="text-xl font-bold text-indigo-600 dark:text-indigo-400 mb-6">Document Uploads</h3>
+                    <div className="grid grid-cols-1 gap-6">
+                      {/* Passport Upload */}
+                      <div className="space-y-3">
+                        <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400">Passport</label>
+                        {existingDocs.passport ? (
+                          <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                            <div className="flex items-center justify-between gap-2">
+                              <button
+                                onClick={() => handleViewDocument(existingDocs.passport!.id)}
+                                className="text-sm text-green-700 dark:text-green-300 hover:text-green-900 dark:hover:text-green-100 underline cursor-pointer text-left flex-1"
+                              >
+                                ✓ Uploaded: {existingDocs.passport.fileName}
+                              </button>
+                              <button
+                                onClick={() => handleRemoveDocument(existingDocs.passport!.id, 'PASSPORT')}
+                                disabled={uploading}
+                                className="px-3 py-1 text-xs font-medium text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                title="Remove this document"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          </div>
+                        ) : null}
+                        <div className="flex flex-col sm:flex-row gap-2">
+                          <input
+                            type="file"
+                            accept="application/pdf"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0]
+                              if (file) setPassport(file)
+                            }}
+                            className="w-full sm:flex-1 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 dark:file:bg-indigo-900/50 dark:file:text-indigo-300"
+                          />
+                          <button
+                            onClick={() => passport && handleFileUpload(passport, 'PASSPORT')}
+                            disabled={!passport || uploading}
+                            className="w-full sm:w-auto px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                          >
+                            {uploading ? 'Uploading...' : 'Upload'}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Aadhar Card Upload */}
+                      <div className="space-y-3">
+                        <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400">Aadhar Card</label>
+                        {existingDocs.aadharCard ? (
+                          <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                            <div className="flex items-center justify-between gap-2">
+                              <button
+                                onClick={() => handleViewDocument(existingDocs.aadharCard!.id)}
+                                className="text-sm text-green-700 dark:text-green-300 hover:text-green-900 dark:hover:text-green-100 underline cursor-pointer text-left flex-1"
+                              >
+                                ✓ Uploaded: {existingDocs.aadharCard.fileName}
+                              </button>
+                              <button
+                                onClick={() => handleRemoveDocument(existingDocs.aadharCard!.id, 'AADHAR_CARD')}
+                                disabled={uploading}
+                                className="px-3 py-1 text-xs font-medium text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                title="Remove this document"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          </div>
+                        ) : null}
+                        <div className="flex flex-col sm:flex-row gap-2">
+                          <input
+                            type="file"
+                            accept="application/pdf"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0]
+                              if (file) setAadharCard(file)
+                            }}
+                            className="w-full sm:flex-1 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 dark:file:bg-indigo-900/50 dark:file:text-indigo-300"
+                          />
+                          <button
+                            onClick={() => aadharCard && handleFileUpload(aadharCard, 'AADHAR_CARD')}
+                            disabled={!aadharCard || uploading}
+                            className="w-full sm:w-auto px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                          >
+                            {uploading ? 'Uploading...' : 'Upload'}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Driver's License Upload */}
+                      <div className="space-y-3">
+                        <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400">Driver&apos;s License</label>
+                        {existingDocs.driversLicense ? (
+                          <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                            <div className="flex items-center justify-between gap-2">
+                              <button
+                                onClick={() => handleViewDocument(existingDocs.driversLicense!.id)}
+                                className="text-sm text-green-700 dark:text-green-300 hover:text-green-900 dark:hover:text-green-100 underline cursor-pointer text-left flex-1"
+                              >
+                                ✓ Uploaded: {existingDocs.driversLicense.fileName}
+                              </button>
+                              <button
+                                onClick={() => handleRemoveDocument(existingDocs.driversLicense!.id, 'DRIVERS_LICENSE')}
+                                disabled={uploading}
+                                className="px-3 py-1 text-xs font-medium text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                title="Remove this document"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          </div>
+                        ) : null}
+                        <div className="flex flex-col sm:flex-row gap-2">
+                          <input
+                            type="file"
+                            accept="application/pdf"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0]
+                              if (file) setDriversLicense(file)
+                            }}
+                            className="w-full sm:flex-1 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 dark:file:bg-indigo-900/50 dark:file:text-indigo-300"
+                          />
+                          <button
+                            onClick={() => driversLicense && handleFileUpload(driversLicense, 'DRIVERS_LICENSE')}
+                            disabled={!driversLicense || uploading}
+                            className="w-full sm:w-auto px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                          >
+                            {uploading ? 'Uploading...' : 'Upload'}
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -884,90 +1142,631 @@ export default function ProfilePage() {
               {/* Travel Tab */}
               {activeTab === 'travel' && (
                 <div className="space-y-6">
-                  <h2 className="text-2xl font-bold text-indigo-600">Travel Information</h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <h2 className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">Travel History</h2>
+                  <p className="text-slate-600 dark:text-slate-400">Enter your travel history for the last 5 years</p>
+
+                  {/* Travel History Entries */}
+                  <div className="space-y-4">
+                    {profile.travelHistory.map((entry, index) => (
+                      <div key={index} className="bg-slate-50 dark:bg-slate-700/50 p-6 rounded-lg border border-slate-200 dark:border-slate-600">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">Start Date</label>
+                            <input
+                              type="date"
+                              value={entry.startDate}
+                              onChange={(e) => {
+                                const newHistory = [...profile.travelHistory]
+                                newHistory[index].startDate = e.target.value
+                                setProfile({ ...profile, travelHistory: newHistory })
+                              }}
+                              placeholder="mm/dd/yyyy"
+                              className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">End Date</label>
+                            <input
+                              type="date"
+                              value={entry.endDate}
+                              onChange={(e) => {
+                                const newHistory = [...profile.travelHistory]
+                                newHistory[index].endDate = e.target.value
+                                setProfile({ ...profile, travelHistory: newHistory })
+                              }}
+                              placeholder="mm/dd/yyyy"
+                              className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">Country</label>
+                            <input
+                              type="text"
+                              value={entry.country}
+                              onChange={(e) => {
+                                const newHistory = [...profile.travelHistory]
+                                newHistory[index].country = e.target.value
+                                setProfile({ ...profile, travelHistory: newHistory })
+                              }}
+                              placeholder="Enter country visited"
+                              className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">Reason</label>
+                            <input
+                              type="text"
+                              value={entry.reason}
+                              onChange={(e) => {
+                                const newHistory = [...profile.travelHistory]
+                                newHistory[index].reason = e.target.value
+                                setProfile({ ...profile, travelHistory: newHistory })
+                              }}
+                              placeholder="Enter reason for travel"
+                              className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            />
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => {
+                            const newHistory = profile.travelHistory.filter((_, i) => i !== index)
+                            setProfile({ ...profile, travelHistory: newHistory })
+                          }}
+                          className="mt-4 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors font-medium"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Add Travel Button */}
+                  <button
+                    onClick={() => {
+                      setProfile({
+                        ...profile,
+                        travelHistory: [...profile.travelHistory, { startDate: '', endDate: '', country: '', reason: '' }]
+                      })
+                    }}
+                    className="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium shadow-lg"
+                  >
+                    Add Travel
+                  </button>
+
+                  {/* Visa Refusal Question */}
+                  <div className="mt-8 pt-6 border-t border-slate-200 dark:border-slate-600">
                     <div>
-                      <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">Passport Number</label>
-                      <input
-                        type="text"
-                        value={profile.passportNumber}
-                        onChange={(e) => setProfile({ ...profile, passportNumber: e.target.value })}
-                        placeholder="Enter passport number"
-                        className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      />
+                      <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">
+                        Have you ever been refused a visa?
+                      </label>
+                      <select
+                        value={profile.visaRefused ? 'yes' : 'no'}
+                        onChange={(e) => {
+                          const refused = e.target.value === 'yes'
+                          setProfile({ 
+                            ...profile, 
+                            visaRefused: refused,
+                            visaRefusedCountry: refused ? profile.visaRefusedCountry : ''
+                          })
+                        }}
+                        className="w-full md:w-1/2 px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      >
+                        <option value="no">No</option>
+                        <option value="yes">Yes</option>
+                      </select>
                     </div>
-                    <div>
-                      <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">Name as per Passport</label>
-                      <input
-                        type="text"
-                        value={profile.nameAsPerPassport}
-                        onChange={(e) => setProfile({ ...profile, nameAsPerPassport: e.target.value })}
-                        placeholder="Enter name as per passport"
-                        className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">Passport Issue Location</label>
-                      <input
-                        type="text"
-                        value={profile.passportIssueLocation}
-                        onChange={(e) => setProfile({ ...profile, passportIssueLocation: e.target.value })}
-                        placeholder="Enter issue location"
-                        className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">Passport Issue Date</label>
-                      <input
-                        type="date"
-                        value={profile.passportIssueDate}
-                        onChange={(e) => setProfile({ ...profile, passportIssueDate: e.target.value })}
-                        className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">Passport Expiry Date</label>
-                      <input
-                        type="date"
-                        value={profile.passportExpiryDate}
-                        onChange={(e) => setProfile({ ...profile, passportExpiryDate: e.target.value })}
-                        className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      />
-                    </div>
+
+                    {/* Conditional Country Input */}
+                    {profile.visaRefused && (
+                      <div className="mt-4">
+                        <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">
+                          Enter Country Name <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={profile.visaRefusedCountry}
+                          onChange={(e) => setProfile({ ...profile, visaRefusedCountry: e.target.value })}
+                          placeholder="Enter the country name"
+                          required
+                          className="w-full md:w-1/2 px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
 
-              {/* Visa Tab */}
-              {activeTab === 'visa' && (
-                <div className="space-y-6">
-                  <h2 className="text-2xl font-bold text-indigo-600">Visa Information</h2>
-                  <div className="text-center py-12 text-gray-500">
-                    <p className="text-lg">Visa details coming soon...</p>
-                    <p className="text-sm mt-2">This section will include visa type, status, and validity information.</p>
-                  </div>
-                </div>
-              )}
-
-              {/* References Tab */}
-              {activeTab === 'references' && (
-                <div className="space-y-6">
-                  <h2 className="text-2xl font-bold text-indigo-600">References</h2>
-                  <div className="text-center py-12 text-gray-500">
-                    <p className="text-lg">References coming soon...</p>
-                    <p className="text-sm mt-2">This section will include contact information for references.</p>
-                  </div>
-                </div>
-              )}
-
-              {/* Work Details Tab */}
+              {/* Work Details Tab (Merged with References) */}
               {activeTab === 'work' && (
                 <div className="space-y-6">
-                  <h2 className="text-2xl font-bold text-indigo-600">Work Details</h2>
-                  <div className="text-center py-12 text-gray-500">
-                    <p className="text-lg">Work experience details coming soon...</p>
-                    <p className="text-sm mt-2">This section will include employment history and experience.</p>
+                  <h2 className="text-2xl font-bold text-indigo-600">Work Experience & References</h2>
+
+                  {/* Main Question */}
+                  <div>
+                    <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">
+                      Do you have any professional work experience? <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      value={hasWorkExperience}
+                      onChange={(e) => {
+                        setHasWorkExperience(e.target.value)
+                        if (e.target.value === 'no') {
+                          setWorkExperiences([])
+                        }
+                      }}
+                    >
+                      <option value="">Select an option</option>
+                      <option value="yes">Yes</option>
+                      <option value="no">No</option>
+                    </select>
                   </div>
+
+                  {/* Work Experiences Section - Only show if "yes" */}
+                  {hasWorkExperience === 'yes' && (
+                    <div className="space-y-6">
+                      {workExperiences.map((experience, index) => (
+                        <div key={experience.id} className="border-2 border-indigo-200 dark:border-indigo-800 rounded-xl p-6 bg-indigo-50 dark:bg-slate-800">
+                          <div className="flex justify-between items-center mb-4">
+                            <h4 className="text-lg font-semibold text-indigo-700 dark:text-indigo-400">Work Experience #{index + 1}</h4>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setWorkExperiences(workExperiences.filter((_, i) => i !== index))
+                              }}
+                              className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-all text-sm font-semibold"
+                            >
+                              Remove
+                            </button>
+                          </div>
+
+                          <div className="space-y-4">
+                            {/* Job Title and Organization */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div>
+                                <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">
+                                  Job Title <span className="text-red-500">*</span>
+                                </label>
+                                <input
+                                  type="text"
+                                  className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                  placeholder="Enter job title"
+                                  value={experience.jobTitle}
+                                  onChange={(e) => {
+                                    const updated = [...workExperiences]
+                                    updated[index].jobTitle = e.target.value
+                                    setWorkExperiences(updated)
+                                  }}
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">
+                                  Organization Name <span className="text-red-500">*</span>
+                                </label>
+                                <input
+                                  type="text"
+                                  className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                  placeholder="Enter organization name offering the job"
+                                  value={experience.organizationName}
+                                  onChange={(e) => {
+                                    const updated = [...workExperiences]
+                                    updated[index].organizationName = e.target.value
+                                    setWorkExperiences(updated)
+                                  }}
+                                />
+                              </div>
+                            </div>
+
+                            {/* Organization Address and Contact */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div>
+                                <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">
+                                  Organization Address
+                                </label>
+                                <input
+                                  type="text"
+                                  className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                  placeholder="Enter organization location or city"
+                                  value={experience.organizationAddress}
+                                  onChange={(e) => {
+                                    const updated = [...workExperiences]
+                                    updated[index].organizationAddress = e.target.value
+                                    setWorkExperiences(updated)
+                                  }}
+                                />
+                              </div>
+                            </div>
+
+                            {/* Job Duration */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div>
+                                <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">
+                                  Job start date <span className="text-red-500">*</span>
+                                </label>
+                                <input
+                                  type="date"
+                                  className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                  value={experience.startDate}
+                                  onChange={(e) => {
+                                    const updated = [...workExperiences]
+                                    updated[index].startDate = e.target.value
+                                    setWorkExperiences(updated)
+                                  }}
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">
+                                  Job end date <span className="text-red-500">*</span>
+                                </label>
+                                <input
+                                  type="date"
+                                  className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                  value={experience.endDate}
+                                  onChange={(e) => {
+                                    const updated = [...workExperiences]
+                                    updated[index].endDate = e.target.value
+                                    setWorkExperiences(updated)
+                                  }}
+                                />
+                              </div>
+                            </div>
+
+                            {/* Document Uploads */}
+                            <div className="space-y-4">
+                              <div>
+                                <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">
+                                  Certificate (Optional)
+                                </label>
+                                <div className="flex items-center gap-3">
+                                  <label className="cursor-pointer px-6 py-2 bg-indigo-400 text-white rounded-lg hover:bg-indigo-500 transition-all text-sm font-semibold">
+                                    Browse
+                                    <input
+                                      type="file"
+                                      className="hidden"
+                                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                                      onChange={(e) => {
+                                        const updated = [...workExperiences]
+                                        updated[index].certificateFile = e.target.files?.[0] || null
+                                        setWorkExperiences(updated)
+                                        if (e.target.files?.[0]) {
+                                          setAlert({ type: 'success', message: 'File has been uploaded' })
+                                          setTimeout(() => setAlert(null), 3000)
+                                        }
+                                      }}
+                                    />
+                                  </label>
+                                  <span className="text-sm text-slate-600 dark:text-slate-400">
+                                    {experience.certificateFile ? experience.certificateFile.name : 'No file selected.'}
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div>
+                                <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">
+                                  Letter of Recommendation (Optional)
+                                </label>
+                                <div className="flex items-center gap-3">
+                                  <label className="cursor-pointer px-6 py-2 bg-indigo-400 text-white rounded-lg hover:bg-indigo-500 transition-all text-sm font-semibold">
+                                    Browse
+                                    <input
+                                      type="file"
+                                      className="hidden"
+                                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                                      onChange={(e) => {
+                                        const updated = [...workExperiences]
+                                        updated[index].lorFile = e.target.files?.[0] || null
+                                        setWorkExperiences(updated)
+                                        if (e.target.files?.[0]) {
+                                          setAlert({ type: 'success', message: 'File has been uploaded' })
+                                          setTimeout(() => setAlert(null), 3000)
+                                        }
+                                      }}
+                                    />
+                                  </label>
+                                  <span className="text-sm text-slate-600 dark:text-slate-400">
+                                    {experience.lorFile ? experience.lorFile.name : 'No file selected.'}
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div>
+                                <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">
+                                  Salary Slip (Optional)
+                                </label>
+                                <div className="flex items-center gap-3">
+                                  <label className="cursor-pointer px-6 py-2 bg-indigo-400 text-white rounded-lg hover:bg-indigo-500 transition-all text-sm font-semibold">
+                                    Browse
+                                    <input
+                                      type="file"
+                                      className="hidden"
+                                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                                      onChange={(e) => {
+                                        const updated = [...workExperiences]
+                                        updated[index].salarySlipFile = e.target.files?.[0] || null
+                                        setWorkExperiences(updated)
+                                        if (e.target.files?.[0]) {
+                                          setAlert({ type: 'success', message: 'File has been uploaded' })
+                                          setTimeout(() => setAlert(null), 3000)
+                                        }
+                                      }}
+                                    />
+                                  </label>
+                                  <span className="text-sm text-slate-600 dark:text-slate-400">
+                                    {experience.salarySlipFile ? experience.salarySlipFile.name : 'No file selected.'}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Reference Question */}
+                            <div className="pt-4 border-t border-indigo-300 dark:border-indigo-700">
+                              <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">
+                                Do you have a reference from this organization? <span className="text-red-500">*</span>
+                              </label>
+                              <select
+                                className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                value={experience.hasReference}
+                                onChange={(e) => {
+                                  const updated = [...workExperiences]
+                                  updated[index].hasReference = e.target.value
+                                  if (e.target.value === 'no') {
+                                    // Clear reference fields
+                                    updated[index].referenceName = ''
+                                    updated[index].referencePosition = ''
+                                    updated[index].referenceTitle = ''
+                                    updated[index].referenceWorkEmail = ''
+                                    updated[index].referenceDurationKnown = ''
+                                    updated[index].referencePhone = ''
+                                    updated[index].referenceRelationship = ''
+                                    updated[index].referenceInstitution = ''
+                                    updated[index].referenceInstitutionAddress = ''
+                                    updated[index].referenceDocumentFile = null
+                                  }
+                                  setWorkExperiences(updated)
+                                }}
+                              >
+                                <option value="">Select an option</option>
+                                <option value="yes">Yes</option>
+                                <option value="no">No</option>
+                              </select>
+                            </div>
+
+                            {/* Reference Details - Only show if "yes" */}
+                            {experience.hasReference === 'yes' && (
+                              <div className="bg-white dark:bg-slate-900 rounded-lg p-5 space-y-4 border border-indigo-200 dark:border-indigo-700">
+                                <h5 className="text-md font-semibold text-indigo-700 dark:text-indigo-400 mb-3">Reference Details</h5>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                  <div>
+                                    <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">
+                                      Name <span className="text-red-500">*</span>
+                                    </label>
+                                    <input
+                                      type="text"
+                                      className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                      placeholder="Enter reference name"
+                                      value={experience.referenceName}
+                                      onChange={(e) => {
+                                        const updated = [...workExperiences]
+                                        updated[index].referenceName = e.target.value
+                                        setWorkExperiences(updated)
+                                      }}
+                                    />
+                                  </div>
+
+                                  <div>
+                                    <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">
+                                      Position <span className="text-red-500">*</span>
+                                    </label>
+                                    <input
+                                      type="text"
+                                      className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                      placeholder="Enter reference position"
+                                      value={experience.referencePosition}
+                                      onChange={(e) => {
+                                        const updated = [...workExperiences]
+                                        updated[index].referencePosition = e.target.value
+                                        setWorkExperiences(updated)
+                                      }}
+                                    />
+                                  </div>
+
+                                  <div>
+                                    <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">
+                                      Title
+                                    </label>
+                                    <input
+                                      type="text"
+                                      className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                      placeholder="Enter reference title"
+                                      value={experience.referenceTitle}
+                                      onChange={(e) => {
+                                        const updated = [...workExperiences]
+                                        updated[index].referenceTitle = e.target.value
+                                        setWorkExperiences(updated)
+                                      }}
+                                    />
+                                  </div>
+
+                                  <div>
+                                    <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">
+                                      Work Email <span className="text-red-500">*</span>
+                                    </label>
+                                    <input
+                                      type="email"
+                                      className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                      placeholder="Enter reference work email"
+                                      value={experience.referenceWorkEmail}
+                                      onChange={(e) => {
+                                        const updated = [...workExperiences]
+                                        updated[index].referenceWorkEmail = e.target.value
+                                        setWorkExperiences(updated)
+                                      }}
+                                    />
+                                  </div>
+
+                                  <div>
+                                    <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">
+                                      Duration Known
+                                    </label>
+                                    <input
+                                      type="text"
+                                      className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                      placeholder="Enter duration known"
+                                      value={experience.referenceDurationKnown}
+                                      onChange={(e) => {
+                                        const updated = [...workExperiences]
+                                        updated[index].referenceDurationKnown = e.target.value
+                                        setWorkExperiences(updated)
+                                      }}
+                                    />
+                                  </div>
+
+                                  <div>
+                                    <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">
+                                      Phone <span className="text-red-500">*</span>
+                                    </label>
+                                    <input
+                                      type="tel"
+                                      className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                      placeholder="Enter reference phone"
+                                      value={experience.referencePhone}
+                                      onChange={(e) => {
+                                        const updated = [...workExperiences]
+                                        updated[index].referencePhone = e.target.value
+                                        setWorkExperiences(updated)
+                                      }}
+                                    />
+                                  </div>
+
+                                  <div>
+                                    <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">
+                                      Relationship
+                                    </label>
+                                    <input
+                                      type="text"
+                                      className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                      placeholder="Enter relationship"
+                                      value={experience.referenceRelationship}
+                                      onChange={(e) => {
+                                        const updated = [...workExperiences]
+                                        updated[index].referenceRelationship = e.target.value
+                                        setWorkExperiences(updated)
+                                      }}
+                                    />
+                                  </div>
+
+                                  <div>
+                                    <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">
+                                      Institution
+                                    </label>
+                                    <input
+                                      type="text"
+                                      className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                      placeholder="Enter institution"
+                                      value={experience.referenceInstitution}
+                                      onChange={(e) => {
+                                        const updated = [...workExperiences]
+                                        updated[index].referenceInstitution = e.target.value
+                                        setWorkExperiences(updated)
+                                      }}
+                                    />
+                                  </div>
+                                </div>
+
+                                <div>
+                                  <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">
+                                    Institution Address
+                                  </label>
+                                  <input
+                                    type="text"
+                                    className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    placeholder="Enter institution address"
+                                    value={experience.referenceInstitutionAddress}
+                                    onChange={(e) => {
+                                      const updated = [...workExperiences]
+                                      updated[index].referenceInstitutionAddress = e.target.value
+                                      setWorkExperiences(updated)
+                                    }}
+                                  />
+                                </div>
+
+                                {/* Reference Document Upload */}
+                                <div>
+                                  <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">
+                                    Reference Document (Optional)
+                                  </label>
+                                  <div className="flex items-center gap-3">
+                                    <label className="cursor-pointer px-6 py-2 bg-indigo-400 text-white rounded-lg hover:bg-indigo-500 transition-all text-sm font-semibold">
+                                      Upload
+                                      <input
+                                        type="file"
+                                        className="hidden"
+                                        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                                        onChange={(e) => {
+                                          const updated = [...workExperiences]
+                                          updated[index].referenceDocumentFile = e.target.files?.[0] || null
+                                          setWorkExperiences(updated)
+                                          if (e.target.files?.[0]) {
+                                            setAlert({ type: 'success', message: 'File has been uploaded' })
+                                            setTimeout(() => setAlert(null), 3000)
+                                          }
+                                        }}
+                                      />
+                                    </label>
+                                    <span className="text-sm text-slate-600 dark:text-slate-400">
+                                      {experience.referenceDocumentFile ? experience.referenceDocumentFile.name : 'No file selected.'}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+
+                      {/* Add Work Experience Button */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setWorkExperiences([
+                            ...workExperiences,
+                            {
+                              id: Date.now().toString(),
+                              jobTitle: '',
+                              organizationName: '',
+                              organizationAddress: '',
+                              organizationContact: '',
+                              startDate: '',
+                              endDate: '',
+                              hasReference: '',
+                              referenceName: '',
+                              referencePosition: '',
+                              referenceTitle: '',
+                              referenceWorkEmail: '',
+                              referenceDurationKnown: '',
+                              referencePhone: '',
+                              referenceRelationship: '',
+                              referenceInstitution: '',
+                              referenceInstitutionAddress: '',
+                              certificateFile: null,
+                              lorFile: null,
+                              salarySlipFile: null,
+                              referenceDocumentFile: null,
+                            },
+                          ])
+                        }}
+                        className="w-full px-6 py-4 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        </svg>
+                        Add Work Experience
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 

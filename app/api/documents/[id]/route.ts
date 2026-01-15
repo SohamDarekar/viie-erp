@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAuth } from '@/lib/auth'
-import { readFile } from '@/lib/file'
+import { readFile, deleteFile } from '@/lib/file'
 import { logDocumentAccess } from '@/lib/audit'
 
 export async function GET(
@@ -106,13 +106,13 @@ export async function DELETE(
       )
     }
 
+    // Delete file from server first
+    await deleteFile(document.storedPath)
+
     // Delete from database
     await prisma.document.delete({
       where: { id: params.id },
     })
-
-    // Note: File deletion handled by cleanup job or manual process
-    // to prevent accidental data loss
 
     return NextResponse.json({ success: true })
   } catch (error) {

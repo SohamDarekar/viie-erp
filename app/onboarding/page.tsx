@@ -3,6 +3,30 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 
+type WorkExperience = {
+  id: string
+  jobTitle: string
+  organizationName: string
+  organizationAddress: string
+  organizationContact: string
+  startDate: string
+  endDate: string
+  hasReference: string
+  referenceName: string
+  referencePosition: string
+  referenceTitle: string
+  referenceWorkEmail: string
+  referenceDurationKnown: string
+  referencePhone: string
+  referenceRelationship: string
+  referenceInstitution: string
+  referenceInstitutionAddress: string
+  certificateFile: File | null
+  lorFile: File | null
+  salarySlipFile: File | null
+  referenceDocumentFile: File | null
+}
+
 export default function OnboardingPage() {
   const router = useRouter()
   const [currentStep, setCurrentStep] = useState(1)
@@ -30,11 +54,13 @@ export default function OnboardingPage() {
     previousInstitution: '',
     previousGrade: '',
   })
+  const [hasWorkExperience, setHasWorkExperience] = useState<string>('')
+  const [workExperiences, setWorkExperiences] = useState<WorkExperience[]>([])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [initialLoading, setInitialLoading] = useState(true)
 
-  const totalSteps = 3
+  const totalSteps = 4
 
   useEffect(() => {
     loadProfile()
@@ -95,12 +121,36 @@ export default function OnboardingPage() {
       const url = isEditMode ? '/api/student/profile' : '/api/student/onboarding'
       const method = isEditMode ? 'PUT' : 'POST'
 
+      // Prepare work experiences data (without file objects)
+      const workExperiencesData = workExperiences.map(exp => ({
+        jobTitle: exp.jobTitle,
+        organizationName: exp.organizationName,
+        organizationAddress: exp.organizationAddress || undefined,
+        organizationContact: exp.organizationContact || undefined,
+        startDate: exp.startDate,
+        endDate: exp.endDate,
+        hasReference: exp.hasReference === 'yes',
+        reference: exp.hasReference === 'yes' ? {
+          name: exp.referenceName,
+          position: exp.referencePosition,
+          title: exp.referenceTitle || undefined,
+          workEmail: exp.referenceWorkEmail,
+          phone: exp.referencePhone,
+          durationKnown: exp.referenceDurationKnown || undefined,
+          relationship: exp.referenceRelationship || undefined,
+          institution: exp.referenceInstitution || undefined,
+          institutionAddress: exp.referenceInstitutionAddress || undefined,
+        } : undefined,
+      }))
+
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...formData,
           intakeYear: parseInt(formData.intakeYear.toString()),
+          hasWorkExperience: hasWorkExperience === 'yes',
+          workExperiences: hasWorkExperience === 'yes' ? workExperiencesData : undefined,
         }),
       })
 
@@ -169,6 +219,26 @@ export default function OnboardingPage() {
     if (currentStep === 2) {
       return formData.phone && formData.address && formData.parentName && formData.parentPhone && formData.parentEmail
     }
+    if (currentStep === 3) {
+      return true // Academic info is optional
+    }
+    if (currentStep === 4) {
+      // If user selected "no" to work experience, they can proceed
+      if (hasWorkExperience === 'no') return true
+      // If user hasn't selected yet, can't proceed
+      if (!hasWorkExperience) return false
+      // If user selected "yes", check if they've added at least one work experience
+      if (hasWorkExperience === 'yes' && workExperiences.length === 0) return false
+      // Validate all work experiences
+      return workExperiences.every(exp => {
+        const basicValid = exp.jobTitle && exp.organizationName && exp.startDate && exp.endDate
+        // If they have a reference, validate reference fields
+        if (exp.hasReference === 'yes') {
+          return basicValid && exp.referenceName && exp.referencePosition && exp.referenceWorkEmail && exp.referencePhone
+        }
+        return basicValid
+      })
+    }
     return true
   }
 
@@ -210,7 +280,8 @@ export default function OnboardingPage() {
             {[
               { num: 1, label: 'Personal Info' },
               { num: 2, label: 'Contact Details' },
-              { num: 3, label: 'Academic Info' }
+              { num: 3, label: 'Academic Info' },
+              { num: 4, label: 'Work Experience' }
             ].map((step, idx) => (
               <div key={step.num} className="flex items-center">
                 <div className="flex flex-col items-center">
@@ -237,8 +308,8 @@ export default function OnboardingPage() {
                     {step.label}
                   </span>
                 </div>
-                {idx < 2 && (
-                  <div className={`h-1 w-32 mx-4 rounded transition-all duration-300 ${
+                {idx < 3 && (
+                  <div className={`h-1 w-24 mx-2 rounded transition-all duration-300 ${
                     step.num < currentStep ? 'bg-indigo-600' : 'bg-white bg-opacity-30'
                   }`}></div>
                 )}
@@ -577,6 +648,502 @@ export default function OnboardingPage() {
                     </div>
                   </div>
                 </div>
+              </div>
+            )}
+
+            {/* Step 4: Work Experience & References */}
+            {currentStep === 4 && (
+              <div className="space-y-6 animate-fade-in">
+                <h3 className="text-2xl font-bold text-gray-800 mb-6">Work Experience & References</h3>
+
+                {/* Main Question */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Do you have any professional work experience? <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    required
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                    value={hasWorkExperience}
+                    onChange={(e) => {
+                      setHasWorkExperience(e.target.value)
+                      if (e.target.value === 'no') {
+                        setWorkExperiences([])
+                      }
+                    }}
+                  >
+                    <option value="">Select an option</option>
+                    <option value="yes">Yes</option>
+                    <option value="no">No</option>
+                  </select>
+                </div>
+
+                {/* Work Experiences Section - Only show if "yes" */}
+                {hasWorkExperience === 'yes' && (
+                  <div className="space-y-6">
+                    {workExperiences.map((experience, index) => (
+                      <div key={experience.id} className="border-2 border-gray-200 rounded-xl p-6 bg-gray-50">
+                        <div className="flex justify-between items-center mb-4">
+                          <h4 className="text-lg font-semibold text-indigo-700">Work Experience #{index + 1}</h4>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setWorkExperiences(workExperiences.filter((_, i) => i !== index))
+                            }}
+                            className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-all text-sm font-semibold"
+                          >
+                            Remove
+                          </button>
+                        </div>
+
+                        <div className="space-y-4">
+                          {/* Job Title and Organization */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                Job Title <span className="text-red-500">*</span>
+                              </label>
+                              <input
+                                type="text"
+                                required
+                                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                placeholder="Enter job title"
+                                value={experience.jobTitle}
+                                onChange={(e) => {
+                                  const updated = [...workExperiences]
+                                  updated[index].jobTitle = e.target.value
+                                  setWorkExperiences(updated)
+                                }}
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                Organization Name <span className="text-red-500">*</span>
+                              </label>
+                              <input
+                                type="text"
+                                required
+                                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                placeholder="Enter organization name offering the job"
+                                value={experience.organizationName}
+                                onChange={(e) => {
+                                  const updated = [...workExperiences]
+                                  updated[index].organizationName = e.target.value
+                                  setWorkExperiences(updated)
+                                }}
+                              />
+                            </div>
+                          </div>
+
+                          {/* Organization Address and Contact */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                Organization Address
+                              </label>
+                              <input
+                                type="text"
+                                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                placeholder="Enter organization location or city"
+                                value={experience.organizationAddress}
+                                onChange={(e) => {
+                                  const updated = [...workExperiences]
+                                  updated[index].organizationAddress = e.target.value
+                                  setWorkExperiences(updated)
+                                }}
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                Organization Phone or Contact
+                              </label>
+                              <input
+                                type="text"
+                                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                placeholder="Enter organization contact info"
+                                value={experience.organizationContact}
+                                onChange={(e) => {
+                                  const updated = [...workExperiences]
+                                  updated[index].organizationContact = e.target.value
+                                  setWorkExperiences(updated)
+                                }}
+                              />
+                            </div>
+                          </div>
+
+                          {/* Job Duration */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                Job start date <span className="text-red-500">*</span>
+                              </label>
+                              <input
+                                type="date"
+                                required
+                                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                value={experience.startDate}
+                                onChange={(e) => {
+                                  const updated = [...workExperiences]
+                                  updated[index].startDate = e.target.value
+                                  setWorkExperiences(updated)
+                                }}
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                Job end date <span className="text-red-500">*</span>
+                              </label>
+                              <input
+                                type="date"
+                                required
+                                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                value={experience.endDate}
+                                onChange={(e) => {
+                                  const updated = [...workExperiences]
+                                  updated[index].endDate = e.target.value
+                                  setWorkExperiences(updated)
+                                }}
+                              />
+                            </div>
+                          </div>
+
+                            {/* Document Uploads */}
+                            <div className="space-y-4">
+                              <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                  Certificate (Optional)
+                                </label>
+                                <div className="flex flex-col sm:flex-row gap-2">
+                                  <input
+                                    type="file"
+                                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                                    onChange={(e) => {
+                                      const updated = [...workExperiences]
+                                      updated[index].certificateFile = e.target.files?.[0] || null
+                                      setWorkExperiences(updated)
+                                    }}
+                                    className="w-full sm:flex-1 text-sm border border-gray-300 rounded-xl bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+                                  />
+                                </div>
+                                {experience.certificateFile && (
+                                  <p className="text-xs text-gray-600 mt-1">Selected: {experience.certificateFile.name}</p>
+                                )}
+                              </div>
+
+                              <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                  Letter of Recommendation (Optional)
+                                </label>
+                                <div className="flex flex-col sm:flex-row gap-2">
+                                  <input
+                                    type="file"
+                                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                                    onChange={(e) => {
+                                      const updated = [...workExperiences]
+                                      updated[index].lorFile = e.target.files?.[0] || null
+                                      setWorkExperiences(updated)
+                                    }}
+                                    className="w-full sm:flex-1 text-sm border border-gray-300 rounded-xl bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+                                  />
+                                </div>
+                                {experience.lorFile && (
+                                  <p className="text-xs text-gray-600 mt-1">Selected: {experience.lorFile.name}</p>
+                                )}
+                              </div>
+
+                              <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                  Salary Slip (Optional)
+                                </label>
+                                <div className="flex flex-col sm:flex-row gap-2">
+                                  <input
+                                    type="file"
+                                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                                    onChange={(e) => {
+                                      const updated = [...workExperiences]
+                                      updated[index].salarySlipFile = e.target.files?.[0] || null
+                                      setWorkExperiences(updated)
+                                    }}
+                                    className="w-full sm:flex-1 text-sm border border-gray-300 rounded-xl bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+                                  />
+                                </div>
+                                {experience.salarySlipFile && (
+                                  <p className="text-xs text-gray-600 mt-1">Selected: {experience.salarySlipFile.name}</p>
+                                )}
+                              </div>
+                            </div>
+
+                          {/* Reference Question */}
+                          <div className="pt-4 border-t border-gray-300">
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">
+                              Do you have a reference from this organization? <span className="text-red-500">*</span>
+                            </label>
+                            <select
+                              required
+                              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                              value={experience.hasReference}
+                              onChange={(e) => {
+                                const updated = [...workExperiences]
+                                updated[index].hasReference = e.target.value
+                                if (e.target.value === 'no') {
+                                  // Clear reference fields
+                                  updated[index].referenceName = ''
+                                  updated[index].referencePosition = ''
+                                  updated[index].referenceTitle = ''
+                                  updated[index].referenceWorkEmail = ''
+                                  updated[index].referenceDurationKnown = ''
+                                  updated[index].referencePhone = ''
+                                  updated[index].referenceRelationship = ''
+                                  updated[index].referenceInstitution = ''
+                                  updated[index].referenceInstitutionAddress = ''
+                                  updated[index].referenceDocumentFile = null
+                                }
+                                setWorkExperiences(updated)
+                              }}
+                            >
+                              <option value="">Select an option</option>
+                              <option value="yes">Yes</option>
+                              <option value="no">No</option>
+                            </select>
+                          </div>
+
+                          {/* Reference Details - Only show if "yes" */}
+                          {experience.hasReference === 'yes' && (
+                            <div className="bg-white rounded-lg p-5 space-y-4 border border-indigo-200">
+                              <h5 className="text-md font-semibold text-indigo-700 mb-3">Reference Details</h5>
+
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                    Name <span className="text-red-500">*</span>
+                                  </label>
+                                  <input
+                                    type="text"
+                                    required
+                                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    placeholder="Enter reference name"
+                                    value={experience.referenceName}
+                                    onChange={(e) => {
+                                      const updated = [...workExperiences]
+                                      updated[index].referenceName = e.target.value
+                                      setWorkExperiences(updated)
+                                    }}
+                                  />
+                                </div>
+
+                                <div>
+                                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                    Position <span className="text-red-500">*</span>
+                                  </label>
+                                  <input
+                                    type="text"
+                                    required
+                                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    placeholder="Enter reference position"
+                                    value={experience.referencePosition}
+                                    onChange={(e) => {
+                                      const updated = [...workExperiences]
+                                      updated[index].referencePosition = e.target.value
+                                      setWorkExperiences(updated)
+                                    }}
+                                  />
+                                </div>
+
+                                <div>
+                                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                    Title
+                                  </label>
+                                  <input
+                                    type="text"
+                                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    placeholder="Enter reference title"
+                                    value={experience.referenceTitle}
+                                    onChange={(e) => {
+                                      const updated = [...workExperiences]
+                                      updated[index].referenceTitle = e.target.value
+                                      setWorkExperiences(updated)
+                                    }}
+                                  />
+                                </div>
+
+                                <div>
+                                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                    Work Email <span className="text-red-500">*</span>
+                                  </label>
+                                  <input
+                                    type="email"
+                                    required
+                                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    placeholder="Enter reference work email"
+                                    value={experience.referenceWorkEmail}
+                                    onChange={(e) => {
+                                      const updated = [...workExperiences]
+                                      updated[index].referenceWorkEmail = e.target.value
+                                      setWorkExperiences(updated)
+                                    }}
+                                  />
+                                </div>
+
+                                <div>
+                                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                    Duration Known
+                                  </label>
+                                  <input
+                                    type="text"
+                                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    placeholder="Enter duration known"
+                                    value={experience.referenceDurationKnown}
+                                    onChange={(e) => {
+                                      const updated = [...workExperiences]
+                                      updated[index].referenceDurationKnown = e.target.value
+                                      setWorkExperiences(updated)
+                                    }}
+                                  />
+                                </div>
+
+                                <div>
+                                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                    Phone <span className="text-red-500">*</span>
+                                  </label>
+                                  <input
+                                    type="tel"
+                                    required
+                                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    placeholder="Enter reference phone"
+                                    value={experience.referencePhone}
+                                    onChange={(e) => {
+                                      const updated = [...workExperiences]
+                                      updated[index].referencePhone = e.target.value
+                                      setWorkExperiences(updated)
+                                    }}
+                                  />
+                                </div>
+
+                                <div>
+                                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                    Relationship
+                                  </label>
+                                  <input
+                                    type="text"
+                                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    placeholder="Enter relationship"
+                                    value={experience.referenceRelationship}
+                                    onChange={(e) => {
+                                      const updated = [...workExperiences]
+                                      updated[index].referenceRelationship = e.target.value
+                                      setWorkExperiences(updated)
+                                    }}
+                                  />
+                                </div>
+
+                                <div>
+                                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                    Institution
+                                  </label>
+                                  <input
+                                    type="text"
+                                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    placeholder="Enter institution"
+                                    value={experience.referenceInstitution}
+                                    onChange={(e) => {
+                                      const updated = [...workExperiences]
+                                      updated[index].referenceInstitution = e.target.value
+                                      setWorkExperiences(updated)
+                                    }}
+                                  />
+                                </div>
+                              </div>
+
+                              <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                  Institution Address
+                                </label>
+                                <input
+                                  type="text"
+                                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                  placeholder="Enter institution address"
+                                  value={experience.referenceInstitutionAddress}
+                                  onChange={(e) => {
+                                    const updated = [...workExperiences]
+                                    updated[index].referenceInstitutionAddress = e.target.value
+                                    setWorkExperiences(updated)
+                                  }}
+                                />
+                              </div>
+
+                              {/* Reference Document Upload */}
+                              <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                  Reference Document (Optional)
+                                </label>
+                                <div className="flex items-center gap-3">
+                                  <label className="cursor-pointer px-4 py-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition-all border border-indigo-200 text-sm font-semibold">
+                                    Browse...
+                                    <input
+                                      type="file"
+                                      className="hidden"
+                                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                                      onChange={(e) => {
+                                        const updated = [...workExperiences]
+                                        updated[index].referenceDocumentFile = e.target.files?.[0] || null
+                                        setWorkExperiences(updated)
+                                      }}
+                                    />
+                                  </label>
+                                  <span className="text-sm text-gray-600">
+                                    {experience.referenceDocumentFile ? experience.referenceDocumentFile.name : 'No file selected.'}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+
+                    {/* Add Work Experience Button */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setWorkExperiences([
+                          ...workExperiences,
+                          {
+                            id: Date.now().toString(),
+                            jobTitle: '',
+                            organizationName: '',
+                            organizationAddress: '',
+                            organizationContact: '',
+                            startDate: '',
+                            endDate: '',
+                            hasReference: '',
+                            referenceName: '',
+                            referencePosition: '',
+                            referenceTitle: '',
+                            referenceWorkEmail: '',
+                            referenceDurationKnown: '',
+                            referencePhone: '',
+                            referenceRelationship: '',
+                            referenceInstitution: '',
+                            referenceInstitutionAddress: '',
+                            certificateFile: null,
+                            lorFile: null,
+                            salarySlipFile: null,
+                            referenceDocumentFile: null,
+                          },
+                        ])
+                      }}
+                      className="w-full px-6 py-4 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      </svg>
+                      Add Work Experience
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
