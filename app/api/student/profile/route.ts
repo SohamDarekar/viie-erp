@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
 import { requireAuth } from '@/lib/auth'
 import { createAuditLog } from '@/lib/audit'
+import { calculateProfileCompletion } from '@/lib/profile-completion'
 
 const updateProfileSchema = z.object({
   firstName: z.string().min(1).optional(),
@@ -24,6 +25,9 @@ const updateProfileSchema = z.object({
   passportExpiryDate: z.string().optional(),
   address: z.string().optional(),
   postalCode: z.string().optional(),
+  // Course details
+  program: z.enum(['BS', 'BBA']).optional(),
+  intakeYear: z.number().int().min(2020).optional(),
   // Travel fields
   travelHistory: z.array(z.object({
     startDate: z.string(),
@@ -53,6 +57,7 @@ const updateProfileSchema = z.object({
   bachelorsStartDate: z.string().optional(),
   bachelorsEndDate: z.string().optional(),
   bachelorsGrade: z.string().optional(),
+  bachelorsCompleted: z.boolean().optional(),
   greTaken: z.boolean().optional(),
   greScore: z.string().optional(),
   toeflTaken: z.boolean().optional(),
@@ -163,6 +168,10 @@ export async function PUT(req: NextRequest) {
 
     const student = await prisma.student.findUnique({
       where: { userId: session.userId },
+      include: {
+        workExperiences: true,
+        documents: true,
+      },
     })
 
     if (!student) {
@@ -175,10 +184,16 @@ export async function PUT(req: NextRequest) {
     const body = await req.json()
     const data = updateProfileSchema.parse(body)
 
+    const profileCompletion = calculateProfileCompletion({
+      ...student,
+      ...data,
+    })
+
     // Update student profile
     const updatedStudent = await prisma.student.update({
       where: { id: student.id },
       data: {
+        profileCompletion,
         ...(data.firstName && { firstName: data.firstName }),
         ...(data.lastName && { lastName: data.lastName }),
         ...(data.email && { email: data.email }),
@@ -198,6 +213,9 @@ export async function PUT(req: NextRequest) {
         ...(data.passportExpiryDate && { passportExpiryDate: new Date(data.passportExpiryDate) }),
         ...(data.address !== undefined && { address: data.address }),
         ...(data.postalCode !== undefined && { postalCode: data.postalCode }),
+        // Course details
+        ...(data.program && { program: data.program }),
+        ...(data.intakeYear && { intakeYear: data.intakeYear }),
         // Travel fields
         ...(data.travelHistory !== undefined && { travelHistory: data.travelHistory }),
         ...(data.visaRefused !== undefined && { visaRefused: data.visaRefused }),
@@ -222,6 +240,7 @@ export async function PUT(req: NextRequest) {
         ...(data.bachelorsStartDate && { bachelorsStartDate: new Date(data.bachelorsStartDate) }),
         ...(data.bachelorsEndDate && { bachelorsEndDate: new Date(data.bachelorsEndDate) }),
         ...(data.bachelorsGrade !== undefined && { bachelorsGrade: data.bachelorsGrade }),
+        ...(data.bachelorsCompleted !== undefined && { bachelorsCompleted: data.bachelorsCompleted }),
         ...(data.greTaken !== undefined && { greTaken: data.greTaken }),
         ...(data.toeflTaken !== undefined && { toeflTaken: data.toeflTaken }),
         // Financial fields

@@ -14,6 +14,7 @@ const querySchema = z.object({
 const createBatchSchema = z.object({
   program: z.enum(['BS', 'BBA']),
   intakeYear: z.number().int().min(2000).max(2100),
+  code: z.string().min(1),
   isActive: z.boolean().optional().default(true),
 })
 
@@ -62,6 +63,17 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const data = createBatchSchema.parse(body)
 
+    const existingByCode = await prisma.batch.findUnique({
+      where: { code: data.code },
+    })
+
+    if (existingByCode) {
+      return NextResponse.json(
+        { error: 'A batch with this code already exists' },
+        { status: 400 }
+      )
+    }
+
     // Check if batch already exists
     const existing = await prisma.batch.findUnique({
       where: {
@@ -85,6 +97,7 @@ export async function POST(req: NextRequest) {
         program: data.program,
         intakeYear: data.intakeYear,
         name: `${data.program}-${data.intakeYear}`,
+        code: data.code,
         isActive: data.isActive,
       },
       include: {

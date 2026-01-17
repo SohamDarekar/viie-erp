@@ -58,6 +58,10 @@ model Student {
   countryOfBirth String?
   nativeLanguage String?
 
+  // Profile Status
+  profileCompletion Float   @default(0)
+  passportPhoto     String?
+
   // Parent/Guardian Contact Information
   parentName  String?
   parentPhone String?
@@ -92,7 +96,7 @@ model Student {
   highSchoolGrade     String? // Percentage
   
   // Bachelor's Degree
-  bachelorsCompleted    Boolean? @default(false)
+  bachelorsCompleted    Boolean?
   bachelorsIn           String?
   bachelorsFromInstitute String?
   bachelorsCountry      String?
@@ -102,16 +106,16 @@ model Student {
   bachelorsGrade        String?
   
   // Test Scores
-  greTaken   Boolean? @default(false)
+  greTaken   Boolean?
   greScore   String?
-  toeflTaken Boolean? @default(false)
+  toeflTaken Boolean?
   toeflScore String?
   languageTest String? // IELTS, PTE, Duolingo
   languageTestScore String?
 
   // Travel History
   travelHistory Json? // Array of {startDate, endDate, country, reason}
-  visaRefused Boolean? @default(false)
+  visaRefused Boolean?
   visaRefusedCountry String?
 
   // Academic Information
@@ -123,8 +127,8 @@ model Student {
   batch   Batch?  @relation(fields: [batchId], references: [id])
 
   // Profile Status
-  hasCompletedOnboarding Boolean @default(false)
-  hasWorkExperience      Boolean @default(false)
+  hasCompletedOnboarding Boolean  @default(false)
+  hasWorkExperience      Boolean?
 
   // Financial Information
   // Personal
@@ -242,6 +246,9 @@ model Batch {
 
   // Auto-generated batch name
   name String @unique // e.g., "BS-2024"
+
+  // Manual batch code (optional for backward compatibility)
+  code String? @unique
 
   // Status
   isActive   Boolean   @default(true)

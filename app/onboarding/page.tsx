@@ -44,15 +44,15 @@ export default function OnboardingPage() {
     bachelorsStartDate: '',
     bachelorsEndDate: '',
     bachelorsGrade: '',
-    greTaken: false,
+    greTaken: undefined as boolean | undefined,
     greScore: '',
-    toeflTaken: false,
+    toeflTaken: undefined as boolean | undefined,
     toeflScore: '',
     languageTest: '',
     languageTestScore: '',
-    program: 'BS',
-    intakeYear: new Date().getFullYear(),
-    bachelorsCompleted: false,
+    program: '',
+    intakeYear: '',
+    bachelorsCompleted: undefined as boolean | undefined,
   })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -108,15 +108,15 @@ export default function OnboardingPage() {
           bachelorsStartDate: student.bachelorsStartDate ? new Date(student.bachelorsStartDate).toISOString().split('T')[0] : '',
           bachelorsEndDate: student.bachelorsEndDate ? new Date(student.bachelorsEndDate).toISOString().split('T')[0] : '',
           bachelorsGrade: student.bachelorsGrade || '',
-          greTaken: student.greTaken || false,
+          greTaken: student.greTaken,
           greScore: student.greScore || '',
-          toeflTaken: student.toeflTaken || false,
+          toeflTaken: student.toeflTaken,
           toeflScore: student.toeflScore || '',
           languageTest: student.languageTest || '',
           languageTestScore: student.languageTestScore || '',
-          program: student.program || 'BS',
-          intakeYear: student.intakeYear || new Date().getFullYear(),
-          bachelorsCompleted: student.bachelorsCompleted || false,
+          program: student.program || '',
+          intakeYear: student.intakeYear || '',
+          bachelorsCompleted: student.bachelorsCompleted,
         })
       }
     } catch (err) {
@@ -140,13 +140,26 @@ export default function OnboardingPage() {
       const url = isEditMode ? '/api/student/profile' : '/api/student/onboarding'
       const method = isEditMode ? 'PUT' : 'POST'
 
+      // Remove undefined and empty string values from formData
+      const payload: any = {
+        ...formData,
+      }
+      
+      // Convert intakeYear to number if it's not empty
+      if (formData.intakeYear && formData.intakeYear !== '') {
+        payload.intakeYear = parseInt(formData.intakeYear.toString())
+      }
+      
+      Object.keys(payload).forEach(key => {
+        if (payload[key] === undefined || payload[key] === '') {
+          delete payload[key]
+        }
+      })
+
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...formData,
-          intakeYear: parseInt(formData.intakeYear.toString()),
-        }),
+        body: JSON.stringify(payload),
       })
 
       const data = await res.json()
@@ -402,17 +415,10 @@ export default function OnboardingPage() {
                     />
                   </div>
                 </div>
-              </div>
-            )}
 
-            {/* Step 2: Education */}
-            {currentStep === 2 && (
-              <div className="space-y-6 animate-fade-in">
-                <h3 className="text-2xl font-bold text-gray-800 mb-6">Education</h3>
-                
-                {/* Academic Program */}
-                <div className="bg-slate-50 p-6 rounded-lg">
-                  <h4 className="text-lg font-semibold text-gray-800 mb-4">Academic Program</h4>
+                {/* Course Details Section */}
+                <div className="bg-slate-50 p-6 rounded-lg mt-6">
+                  <h4 className="text-lg font-semibold text-gray-800 mb-4">Course Details</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-2">Program *</label>
@@ -422,6 +428,7 @@ export default function OnboardingPage() {
                         value={formData.program}
                         onChange={(e) => setFormData({ ...formData, program: e.target.value })}
                       >
+                        <option value="">Select Program</option>
                         <option value="BS">BS - Bachelor of Science</option>
                         <option value="BBA">BBA - Bachelor of Business Administration</option>
                       </select>
@@ -431,14 +438,22 @@ export default function OnboardingPage() {
                       <input
                         type="number"
                         required
+                        placeholder="Enter intake year"
                         className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         value={formData.intakeYear}
-                        onChange={(e) => setFormData({ ...formData, intakeYear: parseInt(e.target.value) })}
+                        onChange={(e) => setFormData({ ...formData, intakeYear: e.target.value })}
                       />
                     </div>
                   </div>
                 </div>
+              </div>
+            )}
 
+            {/* Step 2: Education */}
+            {currentStep === 2 && (
+              <div className="space-y-6 animate-fade-in">
+                <h3 className="text-2xl font-bold text-gray-800 mb-6">Education</h3>
+                
                 {/* School (10th Grade) */}
                 <div className="bg-slate-50 p-6 rounded-lg">
                   <h4 className="text-lg font-semibold text-gray-800 mb-4">School (10th Grade)</h4>

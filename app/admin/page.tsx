@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { BiSolidError } from 'react-icons/bi'
+import * as XLSX from 'xlsx'
 
 interface Student {
   id: string
@@ -15,6 +16,7 @@ interface Student {
   gender?: string
   nationality?: string
   program: string
+  profileCompletion: number
   batch?: {
     id: string
     name: string
@@ -30,10 +32,25 @@ interface Batch {
   id: string
   name: string
   program: string
+  code: string
   isActive: boolean
   _count?: {
     students: number
   }
+}
+
+interface Resource {
+  id: string
+  title: string
+  description?: string
+  fileName: string
+  filePath: string
+  batch?: {
+    id: string
+    name: string
+    code: string
+  } | null
+  createdAt: string
 }
 
 interface Event {
@@ -51,7 +68,7 @@ interface Event {
 
 export default function AdminDashboard() {
   const router = useRouter()
-  const [activeTab, setActiveTab] = useState<'overview' | 'students' | 'batches' | 'email' | 'events' | 'forms' | 'form-visibility'>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'students' | 'batches' | 'email' | 'events' | 'forms' | 'form-visibility' | 'resources'>('overview')
   const [batches, setBatches] = useState<Batch[]>([])
   const [students, setStudents] = useState<Student[]>([])
   const [events, setEvents] = useState<Event[]>([])
@@ -88,6 +105,7 @@ export default function AdminDashboard() {
   const [batchForm, setBatchForm] = useState({
     program: 'BS' as 'BS' | 'BBA',
     intakeYear: new Date().getFullYear(),
+    code: '',
   })
   
   const [emailForm, setEmailForm] = useState({
@@ -97,6 +115,23 @@ export default function AdminDashboard() {
     subject: '',
     message: '',
   })
+  
+  // Email import state
+  const [emailImportFile, setEmailImportFile] = useState<File | null>(null)
+  const [importedEmails, setImportedEmails] = useState<Array<{name: string, email: string}>>([])
+  
+  // Resources state
+  const [resources, setResources] = useState<Resource[]>([])
+  const [resourcesLoading, setResourcesLoading] = useState(false)
+  const [resourceForm, setResourceForm] = useState({
+    title: '',
+    description: '',
+    batchId: '',
+  })
+  const [resourceFile, setResourceFile] = useState<File | null>(null)
+  
+  // Batch search state
+  const [batchSearch, setBatchSearch] = useState('')
 
   const [editingStudent, setEditingStudent] = useState<Student | null>(null)
   const [editForm, setEditForm] = useState({
@@ -145,6 +180,11 @@ export default function AdminDashboard() {
     loadData()
     loadCurrentUser()
   }, [])
+
+  // Reset to page 1 when search changes or items per page changes
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [studentSearch, itemsPerPage])
 
   const loadCurrentUser = async () => {
     try {
@@ -493,7 +533,7 @@ export default function AdminDashboard() {
       }
 
       setSuccess(`Batch ${data.batch.name} created successfully!`)
-      setBatchForm({ program: 'BS', intakeYear: new Date().getFullYear() })
+      setBatchForm({ program: 'BS', intakeYear: new Date().getFullYear(), code: '' })
       await loadData()
     } catch (err) {
       setError('An error occurred')
@@ -826,6 +866,90 @@ export default function AdminDashboard() {
     setBannerPreview('')
   }
 
+  const loadResources = async () => {
+    try {
+      setResourcesLoading(true)
+      const res = await fetch('/api/resources')
+      if (!res.ok) {
+        console.error('Failed to load resources')
+        return
+      }
+      const data = await res.json()
+      setResources(data.resources || [])
+    } catch (err) {
+      console.error('Error loading resources:', err)
+    } finally {
+      setResourcesLoading(false)
+    }
+  }
+
+  const handleCreateResource = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!resourceFile) {
+      setError('Please select a file to upload')
+      return
+    }
+
+    setLoading(true)
+    setError('')
+    setSuccess('')
+
+    try {
+      const formData = new FormData()
+      formData.append('title', resourceForm.title)
+      formData.append('description', resourceForm.description)
+      formData.append('batchId', resourceForm.batchId)
+      formData.append('file', resourceFile)
+
+      const res = await fetch('/api/resources', {
+        method: 'POST',
+        body: formData,
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        setError(data.error || 'Failed to upload resource')
+        return
+      }
+
+      setSuccess('Resource uploaded successfully!')
+      setResourceForm({ title: '', description: '', batchId: '' })
+      setResourceFile(null)
+      await loadResources()
+    } catch (err) {
+      setError('An error occurred')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleDeleteResource = async (resourceId: string) => {
+    if (!confirm('Are you sure you want to delete this resource?')) return
+
+    setLoading(true)
+    setError('')
+    setSuccess('')
+
+    try {
+      const res = await fetch(`/api/resources/${resourceId}`, {
+        method: 'DELETE',
+      })
+
+      if (!res.ok) {
+        setError('Failed to delete resource')
+        return
+      }
+
+      setSuccess('Resource deleted successfully!')
+      await loadResources()
+    } catch (err) {
+      setError('An error occurred')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handleBannerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
@@ -881,11 +1005,6 @@ export default function AdminDashboard() {
   const startIndex = (currentPage - 1) * itemsPerPage
   const endIndex = startIndex + itemsPerPage
   const paginatedStudents = filteredStudents.slice(startIndex, endIndex)
-
-  // Reset to page 1 when search changes or items per page changes
-  useEffect(() => {
-    setCurrentPage(1)
-  }, [studentSearch, itemsPerPage])
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -945,6 +1064,7 @@ export default function AdminDashboard() {
               { id: 'form-visibility', label: 'Form Visibility', icon: 'M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z' },
               { id: 'forms', label: 'Student Forms', icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' },
               { id: 'events', label: 'Events', icon: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z' },
+              { id: 'resources', label: 'Resources', icon: 'M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z' },
               { id: 'email', label: 'Send Email', icon: 'M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z' },
             ].map((tab) => (
               <button
@@ -960,6 +1080,10 @@ export default function AdminDashboard() {
                   // Load form visibility settings when form-visibility tab is clicked
                   if (tab.id === 'form-visibility') {
                     loadFormVisibilitySettings()
+                  }
+                  // Load resources when resources tab is clicked
+                  if (tab.id === 'resources') {
+                    loadResources()
                   }
                 }}
                 className={`py-4 px-1 border-b-2 font-semibold text-sm transition-colors flex items-center ${
@@ -1067,6 +1191,20 @@ export default function AdminDashboard() {
                     />
                   </div>
 
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                      Batch Code
+                    </label>
+                    <input
+                      type="text"
+                      className="input"
+                      value={batchForm.code}
+                      onChange={(e) => setBatchForm({ ...batchForm, code: e.target.value })}
+                      placeholder="e.g., BS-2024"
+                      required
+                    />
+                  </div>
+
                   <button
                     type="submit"
                     disabled={loading}
@@ -1085,6 +1223,17 @@ export default function AdminDashboard() {
                     {batches.length} batch{batches.length !== 1 ? 'es' : ''} loaded
                   </span>
                 </div>
+                
+                {/* Search Input */}
+                <div className="p-4 border-b border-slate-200">
+                  <input
+                    type="text"
+                    placeholder="Search by batch name or code..."
+                    className="input w-full"
+                    value={batchSearch}
+                    onChange={(e) => setBatchSearch(e.target.value)}
+                  />
+                </div>
               {batches.length === 0 ? (
                 <div className="text-center py-12">
                   <svg className="w-16 h-16 mx-auto text-slate-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1099,6 +1248,7 @@ export default function AdminDashboard() {
                     <thead className="bg-slate-50">
                       <tr>
                         <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase">Batch Name</th>
+                        <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase">Code</th>
                         <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase">Program</th>
                         <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase">Students</th>
                         <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase">Status</th>
@@ -1106,9 +1256,19 @@ export default function AdminDashboard() {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-slate-200">
-                      {batches.map((batch) => (
+                      {batches
+                        .filter(batch => 
+                          batch.name.toLowerCase().includes(batchSearch.toLowerCase()) ||
+                          (batch.code && batch.code.toLowerCase().includes(batchSearch.toLowerCase()))
+                        )
+                        .map((batch) => (
                         <tr key={batch.id} className="hover:bg-slate-50">
                           <td className="px-6 py-4 font-semibold text-slate-900">{batch.name}</td>
+                          <td className="px-6 py-4 text-slate-700">
+                            <span className="px-2 py-1 bg-indigo-100 text-indigo-700 rounded text-xs font-mono">
+                              {batch.code || 'N/A'}
+                            </span>
+                          </td>
                           <td className="px-6 py-4 text-slate-700">{batch.program}</td>
                           <td className="px-6 py-4 text-slate-700">{batch._count?.students || 0}</td>
                           <td className="px-6 py-4">
@@ -1223,6 +1383,7 @@ export default function AdminDashboard() {
                           <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Email</th>
                           <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Program</th>
                           <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Batch</th>
+                          <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Profile</th>
                           <th className="px-6 py-4 text-right text-xs font-bold text-slate-700 uppercase tracking-wider">Actions</th>
                         </tr>
                       </thead>
@@ -1268,6 +1429,19 @@ export default function AdminDashboard() {
                             ) : (
                               <span className="badge badge-neutral">Unassigned</span>
                             )}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center space-x-2">
+                              <div className="w-24 bg-slate-200 rounded-full h-2">
+                                <div 
+                                  className="bg-gradient-to-r from-indigo-500 to-purple-600 h-2 rounded-full transition-all duration-300"
+                                  style={{ width: `${student.profileCompletion || 0}%` }}
+                                />
+                              </div>
+                              <span className="text-xs font-semibold text-slate-700 w-10 text-right">
+                                {student.profileCompletion || 0}%
+                              </span>
+                            </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                             <div className="flex justify-end gap-2">
@@ -1453,6 +1627,84 @@ export default function AdminDashboard() {
         {/* Email Tab */}
         {activeTab === 'email' && (
           <div className="animate-fade-in">
+            <div className="card max-w-3xl mx-auto mb-6">
+              <div className="card-header">
+                <h2 className="card-title">Import Recipients from Excel/CSV</h2>
+              </div>
+              <div className="p-6 space-y-4">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    Upload Excel/CSV File (Name, Email columns)
+                  </label>
+                  <input
+                    type="file"
+                    accept=".xlsx,.xls,.csv"
+                    className="input"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0]
+                      if (!file) return
+                      
+                      setEmailImportFile(file)
+                      
+                      try {
+                        const reader = new FileReader()
+                        reader.onload = (event) => {
+                          const data = new Uint8Array(event.target?.result as ArrayBuffer)
+                          const workbook = XLSX.read(data, { type: 'array' })
+                          const firstSheet = workbook.Sheets[workbook.SheetNames[0]]
+                          const jsonData = XLSX.utils.sheet_to_json<any>(firstSheet)
+                          
+                          const emails = jsonData.map((row: any) => ({
+                            name: row.Name || row.name || '',
+                            email: row.Email || row.email || ''
+                          })).filter(item => item.email)
+                          
+                          setImportedEmails(emails)
+                          setSuccess(`Imported ${emails.length} email addresses`)
+                        }
+                        reader.readAsArrayBuffer(file)
+                      } catch (err) {
+                        setError('Failed to parse file')
+                      }
+                    }}
+                  />
+                  <p className="text-xs text-slate-500 mt-1">
+                    File should have &quot;Name&quot; and &quot;Email&quot; columns
+                  </p>
+                </div>
+                
+                {importedEmails.length > 0 && (
+                  <div>
+                    <p className="text-sm font-semibold text-slate-700 mb-2">
+                      Imported {importedEmails.length} Recipients:
+                    </p>
+                    <div className="max-h-40 overflow-y-auto bg-slate-50 rounded p-3 space-y-1">
+                      {importedEmails.slice(0, 10).map((item, idx) => (
+                        <div key={idx} className="text-xs text-slate-600">
+                          {item.name} - {item.email}
+                        </div>
+                      ))}
+                      {importedEmails.length > 10 && (
+                        <div className="text-xs text-slate-500 italic">
+                          ...and {importedEmails.length - 10} more
+                        </div>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setImportedEmails([])
+                        setEmailImportFile(null)
+                      }}
+                      className="text-xs text-red-600 hover:text-red-700 mt-2"
+                    >
+                      Clear Import
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+            
             <div className="card max-w-3xl mx-auto">
               <div className="card-header">
                 <h2 className="card-title">Send Bulk Email</h2>
@@ -1561,6 +1813,156 @@ export default function AdminDashboard() {
                   )}
                 </button>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* Resources Tab */}
+        {activeTab === 'resources' && (
+          <div className="animate-fade-in">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Upload Resource Form */}
+              <div className="card">
+                <div className="card-header">
+                  <h2 className="card-title">Upload Resource</h2>
+                </div>
+                <form onSubmit={handleCreateResource} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                      Title
+                    </label>
+                    <input
+                      type="text"
+                      className="input"
+                      value={resourceForm.title}
+                      onChange={(e) => setResourceForm({ ...resourceForm, title: e.target.value })}
+                      placeholder="Resource title"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                      Description
+                    </label>
+                    <textarea
+                      className="input"
+                      rows={3}
+                      value={resourceForm.description}
+                      onChange={(e) => setResourceForm({ ...resourceForm, description: e.target.value })}
+                      placeholder="Brief description"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                      Batch
+                    </label>
+                    <select
+                      className="input"
+                      value={resourceForm.batchId}
+                      onChange={(e) => setResourceForm({ ...resourceForm, batchId: e.target.value })}
+                      required
+                    >
+                      <option value="">-- Select Batch --</option>
+                      {batches.map((batch) => (
+                        <option key={batch.id} value={batch.id}>
+                          {batch.name} ({batch.code})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                      File
+                    </label>
+                    <input
+                      type="file"
+                      className="input"
+                      onChange={(e) => setResourceFile(e.target.files?.[0] || null)}
+                      required
+                    />
+                    {resourceFile && (
+                      <p className="text-xs text-slate-600 mt-1">
+                        Selected: {resourceFile.name}
+                      </p>
+                    )}
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="btn btn-primary w-full"
+                  >
+                    {loading ? 'Uploading...' : 'Upload Resource'}
+                  </button>
+                </form>
+              </div>
+
+              {/* Resources List */}
+              <div className="card">
+                <div className="card-header">
+                  <h2 className="card-title">All Resources</h2>
+                  <span className="text-sm text-slate-600">
+                    {resources.length} resource{resources.length !== 1 ? 's' : ''}
+                  </span>
+                </div>
+
+                {resourcesLoading ? (
+                  <div className="flex justify-center py-12">
+                    <svg className="animate-spin h-8 w-8 text-indigo-600" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                  </div>
+                ) : resources.length === 0 ? (
+                  <div className="text-center py-12">
+                    <svg className="w-16 h-16 mx-auto text-slate-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
+                    </svg>
+                    <p className="text-slate-500 font-medium">No resources uploaded yet</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {resources.map((resource) => (
+                      <div key={resource.id} className="p-4 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <h3 className="font-semibold text-slate-900 mb-1">{resource.title}</h3>
+                            {resource.description && (
+                              <p className="text-sm text-slate-600 mb-2">{resource.description}</p>
+                            )}
+                            <div className="flex items-center space-x-3 text-xs text-slate-500">
+                              <span className="px-2 py-1 bg-indigo-100 text-indigo-700 rounded font-mono">
+                                {resource.batch?.code || 'N/A'}
+                              </span>
+                              <span>{resource.fileName}</span>
+                              <span>{new Date(resource.createdAt).toLocaleDateString()}</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <a
+                              href={`/api/resources/${resource.id}?download=true`}
+                              download
+                              className="px-3 py-1 bg-indigo-600 text-white text-xs rounded hover:bg-indigo-700 transition-colors"
+                            >
+                              Download
+                            </a>
+                            <button
+                              onClick={() => handleDeleteResource(resource.id)}
+                              className="px-3 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700 transition-colors"
+                              disabled={loading}
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}

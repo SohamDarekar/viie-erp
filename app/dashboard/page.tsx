@@ -11,10 +11,20 @@ interface User {
   email: string
 }
 
+interface Resource {
+  id: string
+  title: string
+  fileName: string
+  fileSize: number
+}
+
 export default function DashboardPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [user, setUser] = useState<User | null>(null)
+  const [profileCompletion, setProfileCompletion] = useState<number>(0)
+  const [batchResources, setBatchResources] = useState<Resource[]>([])
+  const [resourcesLoading, setResourcesLoading] = useState(false)
 
   const loadUser = useCallback(async () => {
     try {
@@ -28,10 +38,11 @@ export default function DashboardPage() {
       }
       const data = await res.json()
       setUser({
-        firstName: data.firstName || '',
-        lastName: data.lastName || '',
-        email: data.email || '',
+        firstName: data.student.firstName || '',
+        lastName: data.student.lastName || '',
+        email: data.student.user?.email || data.student.email || '',
       })
+      setProfileCompletion(data.student.profileCompletion || 0)
     } catch (error) {
       console.error('Error loading user:', error)
     } finally {
@@ -39,9 +50,25 @@ export default function DashboardPage() {
     }
   }, [router])
 
+  const loadBatchResources = useCallback(async () => {
+    setResourcesLoading(true)
+    try {
+      const res = await fetch('/api/student/batch-resources')
+      if (res.ok) {
+        const data = await res.json()
+        setBatchResources(data.resources || [])
+      }
+    } catch (error) {
+      console.error('Failed to load resources:', error)
+    } finally {
+      setResourcesLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
     loadUser()
-  }, [loadUser])
+    loadBatchResources()
+  }, [loadUser, loadBatchResources])
 
   const handleLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' })
@@ -81,10 +108,22 @@ export default function DashboardPage() {
                 <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Profile</h2>
               </div>
               <p className="text-slate-600 dark:text-slate-300 mb-4">
-                Please fill in your details to complete your profile
+                Complete your profile to unlock all features
               </p>
+              <div className="mb-4">
+                <div className="flex justify-between text-sm mb-1">
+                  <span className="text-slate-600 dark:text-slate-400">Completion</span>
+                  <span className="font-bold text-indigo-600 dark:text-indigo-400">{profileCompletion}%</span>
+                </div>
+                <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2.5">
+                  <div 
+                    className="bg-gradient-to-r from-indigo-500 to-purple-600 h-2.5 rounded-full transition-all duration-500"
+                    style={{ width: `${profileCompletion}%` }}
+                  />
+                </div>
+              </div>
               <div className="flex items-center text-indigo-600 dark:text-indigo-400 font-semibold group">
-                <span>Learn More</span>
+                <span>Complete Now</span>
                 <svg className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
                 </svg>
@@ -93,7 +132,7 @@ export default function DashboardPage() {
           </Link>
 
           {/* Resources Card */}
-          <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer border border-purple-100 dark:border-purple-800 hover:scale-105">
+          <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 border border-purple-100 dark:border-purple-800">
             <div className="flex items-center space-x-4 mb-4">
               <div className="w-14 h-14 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl flex items-center justify-center shadow-lg">
                 <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -102,14 +141,42 @@ export default function DashboardPage() {
               </div>
               <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Resources</h2>
             </div>
-            <p className="text-slate-600 dark:text-slate-300 mb-4">
-              View and download resources required by international universities for the application process
-            </p>
-            <div className="flex items-center text-purple-600 dark:text-purple-400 font-semibold group">
-              <span>Learn More</span>
-              <svg className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+            
+            {resourcesLoading ? (
+              <div className="flex justify-center py-8">
+                <svg className="animate-spin h-8 w-8 text-purple-600 dark:text-purple-400" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+              </div>
+            ) : batchResources.length === 0 ? (
+              <p className="text-slate-600 dark:text-slate-300 mb-4">
+                No resources available for your batch yet
+              </p>
+            ) : (
+              <div className="space-y-2 mb-4 max-h-48 overflow-y-auto">
+                {batchResources.slice(0, 5).map((resource) => (
+                  <div key={resource.id} className="flex items-center justify-between p-2 bg-white dark:bg-slate-700 rounded-lg hover:bg-purple-50 dark:hover:bg-slate-600 transition-colors">
+                    <span className="text-sm text-slate-700 dark:text-slate-300 truncate flex-1" title={resource.title}>
+                      {resource.title}
+                    </span>
+                    <a
+                      href={`/api/resources/${resource.id}?download=true`}
+                      download
+                      className="ml-2 px-3 py-1 bg-purple-600 text-white text-xs rounded hover:bg-purple-700 transition-colors font-medium shadow-sm"
+                    >
+                      Download
+                    </a>
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            <div className="flex items-center text-purple-600 dark:text-purple-400 font-semibold">
+              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
               </svg>
+              <span>{batchResources.length} Resource{batchResources.length !== 1 ? 's' : ''} Available</span>
             </div>
           </div>
 

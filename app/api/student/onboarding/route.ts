@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { requireAuth } from '@/lib/auth'
 import { assignStudentToBatch } from '@/lib/batch'
 import { createAuditLog } from '@/lib/audit'
+import { calculateProfileCompletion } from '@/lib/profile-completion'
 
 const workExperienceSchema = z.object({
   jobTitle: z.string().min(1),
@@ -50,6 +51,34 @@ const onboardingSchema = z.object({
   intakeYear: z.number().int().min(2020),
   hasWorkExperience: z.boolean().optional(),
   workExperiences: z.array(workExperienceSchema).optional(),
+  
+  // Education fields
+  school: z.string().optional(),
+  schoolCountry: z.string().optional(),
+  schoolAddress: z.string().optional(),
+  schoolStartDate: z.string().optional(),
+  schoolEndDate: z.string().optional(),
+  schoolGrade: z.string().optional(),
+  highSchool: z.string().optional(),
+  highSchoolCountry: z.string().optional(),
+  highSchoolAddress: z.string().optional(),
+  highSchoolStartDate: z.string().optional(),
+  highSchoolEndDate: z.string().optional(),
+  highSchoolGrade: z.string().optional(),
+  bachelorsIn: z.string().optional(),
+  bachelorsFromInstitute: z.string().optional(),
+  bachelorsCountry: z.string().optional(),
+  bachelorsAddress: z.string().optional(),
+  bachelorsStartDate: z.string().optional(),
+  bachelorsEndDate: z.string().optional(),
+  bachelorsGrade: z.string().optional(),
+  bachelorsCompleted: z.boolean().optional(),
+  greTaken: z.boolean().optional(),
+  greScore: z.string().optional(),
+  toeflTaken: z.boolean().optional(),
+  toeflScore: z.string().optional(),
+  languageTest: z.string().optional(),
+  languageTestScore: z.string().optional(),
 })
 
 export async function POST(req: NextRequest) {
@@ -93,10 +122,14 @@ export async function POST(req: NextRequest) {
       intakeYear: data.intakeYear,
       batchId,
       hasCompletedOnboarding: true,
-      hasWorkExperience: data.hasWorkExperience || false,
     }
     
-    // Add optional fields only if they exist
+    // Only set hasWorkExperience if explicitly provided
+    if (data.hasWorkExperience !== undefined) {
+      studentData.hasWorkExperience = data.hasWorkExperience
+    }
+    
+    // Add optional personal fields
     if (data.email) studentData.email = data.email
     if (data.phone) studentData.phone = data.phone
     if (data.dateOfBirth) studentData.dateOfBirth = new Date(data.dateOfBirth)
@@ -114,6 +147,38 @@ export async function POST(req: NextRequest) {
     if (data.passportExpiryDate) studentData.passportExpiryDate = new Date(data.passportExpiryDate)
     if (data.address) studentData.address = data.address
     if (data.postalCode) studentData.postalCode = data.postalCode
+    
+    // Add education fields
+    if (data.school) studentData.school = data.school
+    if (data.schoolCountry) studentData.schoolCountry = data.schoolCountry
+    if (data.schoolAddress) studentData.schoolAddress = data.schoolAddress
+    if (data.schoolStartDate) studentData.schoolStartDate = new Date(data.schoolStartDate)
+    if (data.schoolEndDate) studentData.schoolEndDate = new Date(data.schoolEndDate)
+    if (data.schoolGrade) studentData.schoolGrade = data.schoolGrade
+    if (data.highSchool) studentData.highSchool = data.highSchool
+    if (data.highSchoolCountry) studentData.highSchoolCountry = data.highSchoolCountry
+    if (data.highSchoolAddress) studentData.highSchoolAddress = data.highSchoolAddress
+    if (data.highSchoolStartDate) studentData.highSchoolStartDate = new Date(data.highSchoolStartDate)
+    if (data.highSchoolEndDate) studentData.highSchoolEndDate = new Date(data.highSchoolEndDate)
+    if (data.highSchoolGrade) studentData.highSchoolGrade = data.highSchoolGrade
+    if (data.bachelorsIn) studentData.bachelorsIn = data.bachelorsIn
+    if (data.bachelorsFromInstitute) studentData.bachelorsFromInstitute = data.bachelorsFromInstitute
+    if (data.bachelorsCountry) studentData.bachelorsCountry = data.bachelorsCountry
+    if (data.bachelorsAddress) studentData.bachelorsAddress = data.bachelorsAddress
+    if (data.bachelorsStartDate) studentData.bachelorsStartDate = new Date(data.bachelorsStartDate)
+    if (data.bachelorsEndDate) studentData.bachelorsEndDate = new Date(data.bachelorsEndDate)
+    if (data.bachelorsGrade) studentData.bachelorsGrade = data.bachelorsGrade
+    if (data.bachelorsCompleted !== undefined) studentData.bachelorsCompleted = data.bachelorsCompleted
+    if (data.greTaken !== undefined) studentData.greTaken = data.greTaken
+    if (data.greScore) studentData.greScore = data.greScore
+    if (data.toeflTaken !== undefined) studentData.toeflTaken = data.toeflTaken
+    if (data.toeflScore) studentData.toeflScore = data.toeflScore
+    if (data.languageTest) studentData.languageTest = data.languageTest
+    if (data.languageTestScore) studentData.languageTestScore = data.languageTestScore
+    
+    // Calculate profile completion
+    const profileCompletion = calculateProfileCompletion(studentData)
+    studentData.profileCompletion = profileCompletion
 
     const student = await prisma.student.create({
       data: studentData,

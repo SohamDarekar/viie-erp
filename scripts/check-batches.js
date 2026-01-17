@@ -18,6 +18,7 @@ async function main() {
   batches.forEach((batch) => {
     console.log(`- ${batch.name}`)
     console.log(`  ID: ${batch.id}`)
+    console.log(`  Code: ${batch.code || 'N/A'}`)
     console.log(`  Program: ${batch.program}`)
     console.log(`  Intake Year: ${batch.intakeYear}`)
     console.log(`  Active: ${batch.isActive}`)

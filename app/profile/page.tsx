@@ -78,11 +78,11 @@ interface ProfileData {
   address: string
   postalCode: string
   program: string
-  intakeYear: number
+  intakeYear: number | null
   batchName: string
   // Travel fields
   travelHistory: TravelEntry[]
-  visaRefused: boolean
+  visaRefused: boolean | null
   visaRefusedCountry: string
   // Education fields
   school: string
@@ -128,7 +128,7 @@ const TABS: { id: Tab; label: string; icon: JSX.Element }[] = [
   { id: 'work', label: 'Work Details', icon: <FaBriefcase /> },
   { id: 'financials', label: 'Financials', icon: <FaDollarSign /> },
   { id: 'documents', label: 'Documents', icon: <FaFileAlt /> },
-  { id: 'course', label: 'Course Details', icon: <FaBook /> },
+  { id: 'course', label: 'Course Preference', icon: <FaBook /> },
   { id: 'university', label: 'University', icon: <FaUniversity /> },
   { id: 'post-admission', label: 'Post Admission', icon: <FaCheckCircle /> },
 ]
@@ -145,6 +145,9 @@ export default function ProfilePage() {
   const [passport, setPassport] = useState<File | null>(null)
   const [aadharCard, setAadharCard] = useState<File | null>(null)
   const [driversLicense, setDriversLicense] = useState<File | null>(null)
+  const [passportPhoto, setPassportPhoto] = useState<File | null>(null)
+  const [passportPhotoPreview, setPassportPhotoPreview] = useState<string>('')
+  const [profileCompletion, setProfileCompletion] = useState<number>(0)
   const [existingDocs, setExistingDocs] = useState<{ 
     marksheet10th?: { id: string; fileName: string };
     marksheet12th?: { id: string; fileName: string };
@@ -201,11 +204,11 @@ export default function ProfilePage() {
     address: '',
     postalCode: '',
     program: '',
-    intakeYear: 2024,
+    intakeYear: null,
     batchName: '',
     // Travel fields
     travelHistory: [],
-    visaRefused: false,
+    visaRefused: null,
     visaRefusedCountry: '',
     // Education fields
     school: '',
@@ -257,6 +260,11 @@ export default function ProfilePage() {
       const responseData = await res.json()
       const student = responseData.student
       
+      setProfileCompletion(student.profileCompletion || 0)
+      if (student.passportPhoto) {
+        setPassportPhotoPreview(`/api/student/passport-photo?path=${encodeURIComponent(student.passportPhoto)}`)
+      }
+      
       setProfile({
         firstName: student.firstName || '',
         lastName: student.lastName || '',
@@ -275,11 +283,11 @@ export default function ProfilePage() {
         address: student.address || '',
         postalCode: student.postalCode || '',
         program: student.program || '',
-        intakeYear: student.intakeYear || 2024,
+        intakeYear: student.intakeYear ?? null,
         batchName: student.batch?.name || '',
         // Travel fields
         travelHistory: student.travelHistory || [],
-        visaRefused: student.visaRefused || false,
+        visaRefused: student.visaRefused ?? null,
         visaRefusedCountry: student.visaRefusedCountry || '',
         // Education fields
         school: student.school || '',
@@ -319,7 +327,7 @@ export default function ProfilePage() {
       })
 
       // Load work experiences
-      if (student.hasWorkExperience && student.workExperiences && student.workExperiences.length > 0) {
+      if (student.hasWorkExperience === true && student.workExperiences && student.workExperiences.length > 0) {
         setHasWorkExperience('yes')
         setWorkExperiences(
           student.workExperiences.map((exp: any) => ({
@@ -346,8 +354,13 @@ export default function ProfilePage() {
             referenceDocumentFile: null,
           }))
         )
+      } else if (student.hasWorkExperience === false) {
+        // User explicitly said they have no work experience
+        setHasWorkExperience('no')
+        setWorkExperiences([])
       } else {
-        setHasWorkExperience(student.hasWorkExperience ? 'no' : '')
+        // hasWorkExperience is null/undefined - user hasn't answered yet
+        setHasWorkExperience('')
         setWorkExperiences([])
       }
 
@@ -686,22 +699,62 @@ export default function ProfilePage() {
         } : undefined,
       }))
 
+      // Prepare the save payload
+      const savePayload: any = {
+        ...profile,
+      }
+      
+      // Remove fields that are not part of the update schema
+      delete savePayload.batchName  // This is a computed field from batch relationship
+      delete savePayload.email  // Email is read-only
+      
+      // Remove empty string values, null values, and empty arrays
+      Object.keys(savePayload).forEach(key => {
+        const value = savePayload[key]
+        if (value === null || value === '' || (Array.isArray(value) && value.length === 0)) {
+          delete savePayload[key]
+        }
+      })
+      
+      // Remove empty program and intakeYear if they exist
+      if (savePayload.program === '') {
+        delete savePayload.program
+      }
+      if (savePayload.intakeYear === null || savePayload.intakeYear === '') {
+        delete savePayload.intakeYear
+      }
+      
+      // Handle hasWorkExperience - only include if user has explicitly answered
+      if (hasWorkExperience !== '') {
+        savePayload.hasWorkExperience = hasWorkExperience === 'yes'
+        if (hasWorkExperience === 'yes') {
+          savePayload.workExperiences = workExperiencesData
+        }
+      }
+      // If hasWorkExperience is empty string, don't include it in payload (keep existing value)
+      
       const res = await fetch('/api/student/profile', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...profile,
-          hasWorkExperience: hasWorkExperience === 'yes',
-          workExperiences: hasWorkExperience === 'yes' ? workExperiencesData : undefined,
-        }),
+        body: JSON.stringify(savePayload),
       })
 
       if (!res.ok) {
         const data = await res.json()
+        console.error('API Error:', data)
+        console.error('Validation details:', JSON.stringify(data.details, null, 2))
+        console.error('Payload sent:', JSON.stringify(savePayload, null, 2))
         throw new Error(data.error || 'Failed to save profile')
       }
 
       setAlert({ type: 'success', message: 'Profile updated successfully!' })
+      await loadProfile()
+      
+      // Navigate to next tab
+      const currentIndex = visibleTabs.findIndex(tab => tab.id === activeTab)
+      if (currentIndex !== -1 && currentIndex < visibleTabs.length - 1) {
+        setActiveTab(visibleTabs[currentIndex + 1].id)
+      }
     } catch (error: any) {
       setAlert({ type: 'error', message: error.message })
     } finally {
@@ -736,6 +789,23 @@ export default function ProfilePage() {
             {alert.message}
           </Alert>
         )}
+
+        {/* Profile Completion Progress Bar */}
+        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-6 mb-6 border border-slate-200 dark:border-slate-700">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">Profile Completion</h3>
+            <span className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{profileCompletion}%</span>
+          </div>
+          <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-4">
+            <div 
+              className="bg-gradient-to-r from-indigo-500 to-purple-600 h-4 rounded-full transition-all duration-500"
+              style={{ width: `${profileCompletion}%` }}
+            />
+          </div>
+          <p className="text-sm text-slate-600 dark:text-slate-400 mt-2">
+            Complete all sections to reach 100%
+          </p>
+        </div>
 
         <div className="grid grid-cols-12 gap-6">
           {/* Sidebar Navigation */}
@@ -949,6 +1019,140 @@ export default function ProfilePage() {
                         placeholder="Enter your postal code"
                         className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
                       />
+                    </div>
+                  </div>
+
+                  {/* Course Details Section */}
+                  <div className="mt-8 pt-6 border-t border-slate-200 dark:border-slate-600">
+                    <h3 className="text-xl font-bold text-indigo-600 dark:text-indigo-400 mb-6">Course Details</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">Program *</label>
+                        <select
+                          value={profile.program}
+                          onChange={(e) => setProfile({ ...profile, program: e.target.value })}
+                          className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        >
+                          <option value="">Select Program</option>
+                          <option value="BS">BS - Bachelor of Science</option>
+                          <option value="BBA">BBA - Bachelor of Business Administration</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">Intake Year *</label>
+                        <input
+                          type="number"
+                          value={profile.intakeYear ? profile.intakeYear.toString() : ''}
+                          onChange={(e) => setProfile({ ...profile, intakeYear: e.target.value === '' ? null : parseInt(e.target.value) })}
+                          className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">Current Batch</label>
+                        <input
+                          type="text"
+                          value={profile.batchName}
+                          disabled
+                          className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors bg-gray-50 cursor-not-allowed"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Passport Photo Upload Section */}
+                  <div className="mt-8 pt-6 border-t border-slate-200 dark:border-slate-600">
+                    <h3 className="text-xl font-bold text-indigo-600 dark:text-indigo-400 mb-6">Passport Size Photograph</h3>
+                    <div className="space-y-4">
+                      {passportPhotoPreview && (
+                        <div className="flex justify-center">
+                          <div className="relative">
+                            <img 
+                              src={passportPhotoPreview} 
+                              alt="Passport Photo"
+                              className="w-40 h-40 object-cover rounded-full border-4 border-indigo-200 dark:border-indigo-800 shadow-lg"
+                            />
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                try {
+                                  const res = await fetch('/api/student/passport-photo', { method: 'DELETE' })
+                                  if (res.ok) {
+                                    setPassportPhotoPreview('')
+                                    setAlert({ type: 'success', message: 'Passport photo removed' })
+                                  } else {
+                                    setAlert({ type: 'error', message: 'Failed to remove photo' })
+                                  }
+                                } catch (error) {
+                                  setAlert({ type: 'error', message: 'Error removing photo' })
+                                }
+                              }}
+                              className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-2 hover:bg-red-600 shadow-lg transition-colors"
+                            >
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                      
+                      <div className="flex flex-col sm:flex-row items-center gap-3">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0]
+                            if (file) {
+                              if (!file.type.startsWith('image/')) {
+                                setAlert({ type: 'error', message: 'Please select an image file' })
+                                return
+                              }
+                              setPassportPhoto(file)
+                              const reader = new FileReader()
+                              reader.onload = (event) => {
+                                setPassportPhotoPreview(event.target?.result as string)
+                              }
+                              reader.readAsDataURL(file)
+                            }
+                          }}
+                          className="w-full sm:flex-1 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 dark:file:bg-indigo-900/50 dark:file:text-indigo-300"
+                        />
+                        {passportPhoto && (
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              setUploading(true)
+                              try {
+                                const formData = new FormData()
+                                formData.append('file', passportPhoto)
+                                const res = await fetch('/api/student/passport-photo', {
+                                  method: 'POST',
+                                  body: formData,
+                                })
+                                if (res.ok) {
+                                  setPassportPhoto(null)
+                                  setAlert({ type: 'success', message: 'Passport photo uploaded successfully!' })
+                                  await loadProfile()
+                                } else {
+                                  const data = await res.json()
+                                  setAlert({ type: 'error', message: data.error || 'Failed to upload photo' })
+                                }
+                              } catch (error) {
+                                setAlert({ type: 'error', message: 'Error uploading photo' })
+                              } finally {
+                                setUploading(false)
+                              }
+                            }}
+                            disabled={uploading}
+                            className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 whitespace-nowrap font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
+                          >
+                            {uploading ? 'Uploading...' : 'Upload Photo'}
+                          </button>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        Upload a recent passport-size photograph (JPEG, PNG, or JPG format)
+                      </p>
                     </div>
                   </div>
 
@@ -1694,17 +1898,26 @@ export default function ProfilePage() {
                         Have you ever been refused a visa?
                       </label>
                       <select
-                        value={profile.visaRefused ? 'yes' : 'no'}
+                        value={profile.visaRefused === null ? '' : profile.visaRefused ? 'yes' : 'no'}
                         onChange={(e) => {
-                          const refused = e.target.value === 'yes'
-                          setProfile({ 
-                            ...profile, 
-                            visaRefused: refused,
-                            visaRefusedCountry: refused ? profile.visaRefusedCountry : ''
-                          })
+                          if (e.target.value === '') {
+                            setProfile({ 
+                              ...profile, 
+                              visaRefused: null,
+                              visaRefusedCountry: ''
+                            })
+                          } else {
+                            const refused = e.target.value === 'yes'
+                            setProfile({ 
+                              ...profile, 
+                              visaRefused: refused,
+                              visaRefusedCountry: refused ? profile.visaRefusedCountry : ''
+                            })
+                          }
                         }}
                         className="w-full md:w-1/2 px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
                       >
+                        <option value="">Select an option</option>
                         <option value="no">No</option>
                         <option value="yes">Yes</option>
                       </select>
@@ -2589,41 +2802,13 @@ export default function ProfilePage() {
                 </div>
               )}
 
-              {/* Course Details Tab */}
+              {/* Course Preference Tab */}
               {activeTab === 'course' && formVisibility.courseDetails && (
                 <div className="space-y-6">
-                  <h2 className="text-2xl font-bold text-indigo-600">Course Details</h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">Program *</label>
-                      <select
-                        value={profile.program}
-                        onChange={(e) => setProfile({ ...profile, program: e.target.value })}
-                        className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      >
-                        <option value="">Select Program</option>
-                        <option value="BS">BS - Bachelor of Science</option>
-                        <option value="BBA">BBA - Bachelor of Business Administration</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">Intake Year *</label>
-                      <input
-                        type="number"
-                        value={profile.intakeYear.toString()}
-                        onChange={(e) => setProfile({ ...profile, intakeYear: parseInt(e.target.value) })}
-                        className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">Current Batch</label>
-                      <input
-                        type="text"
-                        value={profile.batchName}
-                        disabled
-                        className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors bg-gray-50 cursor-not-allowed"
-                      />
-                    </div>
+                  <h2 className="text-2xl font-bold text-indigo-600">Course Preference</h2>
+                  <div className="text-center py-12 text-gray-500">
+                    <p className="text-lg">Course preference details coming soon...</p>
+                    <p className="text-sm mt-2">This section will include your university and course preferences.</p>
                   </div>
                 </div>
               )}
@@ -2664,7 +2849,7 @@ export default function ProfilePage() {
                   disabled={saving}
                   className="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium disabled:opacity-50 shadow-lg"
                 >
-                  {saving ? 'Saving...' : 'Save Changes'}
+                  {saving ? 'Saving...' : 'Save and Continue'}
                 </button>
               </div>
               </>
