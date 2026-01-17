@@ -1597,7 +1597,7 @@ export default function ProfilePage() {
               {activeTab === 'travel' && formVisibility.travel && (
                 <div className="space-y-6">
                   <h2 className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">Travel History</h2>
-                  <p className="text-slate-600 dark:text-slate-400">Enter your travel history for the last 5 years</p>
+                  <p className="text-slate-600 dark:text-slate-400">Enter your international travel history for the last 5 years</p>
 
                   {/* Travel History Entries */}
                   <div className="space-y-4">
