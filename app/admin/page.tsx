@@ -20,6 +20,7 @@ interface Student {
   batch?: {
     id: string
     name: string
+    code: string
   } | null
   user: {
     id: string
@@ -532,7 +533,7 @@ export default function AdminDashboard() {
         return
       }
 
-      setSuccess(`Batch ${data.batch.name} created successfully!`)
+      setSuccess(`Batch ${data.batch.name} (${data.batch.code}) created successfully!`)
       setBatchForm({ program: 'BS', intakeYear: new Date().getFullYear(), code: '' })
       await loadData()
     } catch (err) {
@@ -1390,77 +1391,75 @@ export default function AdminDashboard() {
                       <tbody className="bg-white divide-y divide-slate-200">
                         {paginatedStudents.map((student) => (
                         <tr key={student.id} className="hover:bg-slate-50 transition-colors">
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center">
-                              <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-md">
+                          <td className="px-3 py-3 whitespace-nowrap">
+                            <div className="flex items-center gap-2">
+                              <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-xs shadow-md flex-shrink-0">
                                 {student.firstName[0]}{student.lastName[0]}
                               </div>
-                              <div className="ml-3">
-                                <div className="font-semibold text-slate-900">
-                                  {student.firstName} {student.lastName}
-                                </div>
+                              <div className="font-medium text-sm text-slate-900">
+                                {student.firstName} {student.lastName}
                               </div>
                             </div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
+                          <td className="px-3 py-3 whitespace-nowrap">
                             <div className="flex items-center">
-                              <svg className="w-4 h-4 text-slate-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-3.5 h-3.5 text-slate-400 mr-1.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                               </svg>
-                              <span className="text-slate-700 font-medium">@{student.user.username}</span>
+                              <span className="text-slate-700 text-sm">@{student.user.username}</span>
                             </div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center">
-                              <svg className="w-4 h-4 text-slate-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <td className="px-3 py-3">
+                            <div className="flex items-center max-w-[200px]">
+                              <svg className="w-3.5 h-3.5 text-slate-400 mr-1.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                               </svg>
-                              <span className="text-slate-600 text-sm">{student.user.email}</span>
+                              <span className="text-slate-600 text-xs truncate" title={student.user.email}>{student.user.email}</span>
                             </div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="inline-flex px-3 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                          <td className="px-3 py-3 whitespace-nowrap">
+                            <span className="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
                               {student.program}
                             </span>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
+                          <td className="px-3 py-3 whitespace-nowrap">
                             {student.batch ? (
-                              <span className="badge badge-primary">{student.batch.name}</span>
+                              <span className="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-indigo-100 text-indigo-800">{student.batch.name} ({student.batch.code})</span>
                             ) : (
-                              <span className="badge badge-neutral">Unassigned</span>
+                              <span className="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-600">Unassigned</span>
                             )}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center space-x-2">
-                              <div className="w-24 bg-slate-200 rounded-full h-2">
+                          <td className="px-3 py-3 whitespace-nowrap">
+                            <div className="flex items-center gap-1.5">
+                              <div className="w-16 bg-slate-200 rounded-full h-1.5">
                                 <div 
-                                  className="bg-gradient-to-r from-indigo-500 to-purple-600 h-2 rounded-full transition-all duration-300"
+                                  className="bg-gradient-to-r from-indigo-500 to-purple-600 h-1.5 rounded-full transition-all duration-300"
                                   style={{ width: `${student.profileCompletion || 0}%` }}
                                 />
                               </div>
-                              <span className="text-xs font-semibold text-slate-700 w-10 text-right">
+                              <span className="text-xs font-semibold text-slate-700 w-9 text-right flex-shrink-0">
                                 {student.profileCompletion || 0}%
                               </span>
                             </div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            <div className="flex justify-end gap-2">
+                          <td className="px-3 py-3 whitespace-nowrap text-right text-sm font-medium">
+                            <div className="flex justify-end gap-1.5">
                               <button
                                 onClick={() => handleEditStudent(student)}
-                                className="inline-flex items-center px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm hover:shadow-md"
+                                className="inline-flex items-center px-2.5 py-1.5 bg-blue-600 text-white text-xs rounded-md hover:bg-blue-700 transition-colors shadow-sm hover:shadow-md"
                                 title="Edit student"
                               >
-                                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                 </svg>
                                 Edit
                               </button>
                               <button
                                 onClick={() => setShowDeleteConfirm(student.id)}
-                                className="inline-flex items-center px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors shadow-sm hover:shadow-md"
+                                className="inline-flex items-center px-2.5 py-1.5 bg-red-600 text-white text-xs rounded-md hover:bg-red-700 transition-colors shadow-sm hover:shadow-md"
                                 title="Delete student"
                               >
-                                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                 </svg>
                                 Delete
@@ -1605,7 +1604,7 @@ export default function AdminDashboard() {
                       <option value="">-- Choose a batch --</option>
                       {batches.map((batch) => (
                         <option key={batch.id} value={batch.id}>
-                          {batch.name} ({batch.program}) - {batch._count?.students || 0} students {!batch.isActive && '(Archived)'}
+                          {batch.name} ({batch.code}) - {batch.program} - {batch._count?.students || 0} students {!batch.isActive && '(Archived)'}
                         </option>
                       ))}
                     </select>
@@ -1739,7 +1738,7 @@ export default function AdminDashboard() {
                       <option value="">-- Choose a batch --</option>
                       {batches.map((batch) => (
                         <option key={batch.id} value={batch.id}>
-                          {batch.name}
+                          {batch.name} ({batch.code})
                         </option>
                       ))}
                     </select>
@@ -2107,7 +2106,7 @@ export default function AdminDashboard() {
                                 className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
                               />
                               <span className="ml-3 text-sm text-slate-700 font-medium">
-                                {batch.name} ({batch.program}) - {batch._count?.students || 0} students
+                                {batch.name} ({batch.code}) - {batch.program} - {batch._count?.students || 0} students
                               </span>
                             </label>
                           ))}
@@ -2431,7 +2430,7 @@ export default function AdminDashboard() {
                     <option value="">-- Choose a batch --</option>
                     {batches.map((batch) => (
                       <option key={batch.id} value={batch.id}>
-                        {batch.name} ({batch.program}) - {batch._count?.students || 0} students
+                        {batch.name} ({batch.code}) - {batch.program} - {batch._count?.students || 0} students
                       </option>
                     ))}
                   </select>
@@ -2730,7 +2729,9 @@ export default function AdminDashboard() {
                         return (
                           student.firstName?.toLowerCase().includes(search) ||
                           student.lastName?.toLowerCase().includes(search) ||
-                          student.user?.email?.toLowerCase().includes(search)
+                          student.user?.email?.toLowerCase().includes(search) ||
+                          student.batch?.name?.toLowerCase().includes(search) ||
+                          student.batch?.code?.toLowerCase().includes(search)
                         )
                       })
                       .map((student) => (
@@ -2757,7 +2758,7 @@ export default function AdminDashboard() {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             {student.batch ? (
-                              <span className="badge badge-primary">{student.batch.name}</span>
+                              <span className="badge badge-primary">{student.batch.name} ({student.batch.code})</span>
                             ) : (
                               <span className="badge badge-neutral">Unassigned</span>
                             )}
@@ -2861,6 +2862,7 @@ export default function AdminDashboard() {
                       const search = batchVisibilitySearch.toLowerCase()
                       return (
                         batch.name.toLowerCase().includes(search) ||
+                        batch.code.toLowerCase().includes(search) ||
                         batch.program.toLowerCase().includes(search)
                       )
                     }).length} of {formVisibilityBatches.length} batch{formVisibilityBatches.length !== 1 ? 'es' : ''}
@@ -2874,6 +2876,7 @@ export default function AdminDashboard() {
                     const search = batchVisibilitySearch.toLowerCase()
                     return (
                       batch.name.toLowerCase().includes(search) ||
+                      batch.code.toLowerCase().includes(search) ||
                       batch.program.toLowerCase().includes(search)
                     )
                   })
@@ -2882,7 +2885,7 @@ export default function AdminDashboard() {
                     <div className="bg-gradient-to-r from-indigo-50 to-purple-50 px-6 py-4 border-b border-slate-200">
                       <div className="flex justify-between items-center">
                         <div>
-                          <h3 className="text-lg font-bold text-slate-800">{batch.name}</h3>
+                          <h3 className="text-lg font-bold text-slate-800">{batch.name} ({batch.code})</h3>
                           <p className="text-sm text-slate-600">
                             {batch.program} • {batch.intakeYear} • {batch.studentCount} student{batch.studentCount !== 1 ? 's' : ''}
                           </p>

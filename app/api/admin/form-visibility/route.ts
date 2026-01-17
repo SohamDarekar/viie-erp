@@ -34,6 +34,7 @@ export async function GET(req: NextRequest) {
       batches: batches.map(batch => ({
         id: batch.id,
         name: batch.name,
+        code: batch.code,
         program: batch.program,
         intakeYear: batch.intakeYear,
         studentCount: batch._count.students,

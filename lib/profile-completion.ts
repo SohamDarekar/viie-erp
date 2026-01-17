@@ -59,29 +59,19 @@ export function calculateProfileCompletion(profile: ProfileData): number {
     isFieldFilled(profile.nationality)
 
   // 2. Education
-  // Complete when: school and high school info is filled AND education documents are uploaded
+  // Complete when: school and high school info is filled
   // Fields: school, schoolGrade, highSchool, highSchoolGrade
-  // Documents: MARKSHEET_10TH, MARKSHEET_12TH
-  const isEducationDocType = (type?: string) => {
-    if (!type || typeof type !== 'string') return false
-    return /^(MARKSHEET_10TH|MARKSHEET_12TH|GRE_SCORECARD|TOEFL_SCORECARD|LANGUAGE_TEST_SCORECARD)$/.test(type)
-  }
-  const hasMarksheets = Array.isArray(profile.documents) && 
-    profile.documents.some(doc => doc.type === 'MARKSHEET_10TH') &&
-    profile.documents.some(doc => doc.type === 'MARKSHEET_12TH')
   const educationCompleted =
     isFieldFilled(profile.school) &&
     isFieldFilled(profile.schoolGrade) &&
     isFieldFilled(profile.highSchool) &&
-    isFieldFilled(profile.highSchoolGrade) &&
-    hasMarksheets
+    isFieldFilled(profile.highSchoolGrade)
 
   // 3. Travel
-  // Complete when: user has added travel history OR explicitly answered visa refusal question
-  // The visa question is in the Travel tab, so it counts toward Travel completion
-  const hasTravelEntries = Array.isArray(profile.travelHistory) && profile.travelHistory.length > 0
-  const hasAnsweredVisaQuestion = isBooleanExplicitlySet(profile.visaRefused)
-  const travelCompleted = hasTravelEntries || hasAnsweredVisaQuestion
+  // Complete when: user has added at least one travel history entry OR answered the visa refusal question
+  const travelCompleted = 
+    (Array.isArray(profile.travelHistory) && profile.travelHistory.length > 0) ||
+    isBooleanExplicitlySet(profile.visaRefused)
 
   // 4. Work Details
   // Complete when: user explicitly indicated work experience status
