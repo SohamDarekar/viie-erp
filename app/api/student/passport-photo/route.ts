@@ -3,7 +3,6 @@ import { prisma } from '@/lib/prisma'
 import { requireAuth } from '@/lib/auth'
 import { saveFile, deleteFile, ensureUploadDir } from '@/lib/file'
 import { createAuditLog } from '@/lib/audit'
-import { calculateProfileCompletion } from '@/lib/profile-completion'
 import fs from 'fs/promises'
 
 export async function POST(req: NextRequest) {
@@ -19,10 +18,6 @@ export async function POST(req: NextRequest) {
 
     const student = await prisma.student.findUnique({
       where: { userId: session.userId },
-      include: {
-        workExperiences: true,
-        documents: true,
-      },
     })
 
     if (!student) {
@@ -63,14 +58,12 @@ export async function POST(req: NextRequest) {
       allowedTypes: ['image/jpeg', 'image/jpg', 'image/png'],
     })
 
-    // Recalculate profile completion (passport photo doesn't affect completion)
-    const profileCompletion = calculateProfileCompletion(student)
-
+    // Update passport photo without recalculating profile completion
+    // Profile completion will be recalculated when user saves profile data
     const updatedStudent = await prisma.student.update({
       where: { id: student.id },
       data: {
         passportPhoto: storedPath,
-        profileCompletion,
       },
     })
 
@@ -108,10 +101,6 @@ export async function DELETE(req: NextRequest) {
 
     const student = await prisma.student.findUnique({
       where: { userId: session.userId },
-      include: {
-        workExperiences: true,
-        documents: true,
-      },
     })
 
     if (!student) {
@@ -129,14 +118,12 @@ export async function DELETE(req: NextRequest) {
       }
     }
 
-    // Recalculate profile completion after deletion
-    const profileCompletion = calculateProfileCompletion(student)
-
+    // Update passport photo without recalculating profile completion
+    // Profile completion will be recalculated when user saves profile data
     await prisma.student.update({
       where: { id: student.id },
       data: {
         passportPhoto: null,
-        profileCompletion,
       },
     })
 

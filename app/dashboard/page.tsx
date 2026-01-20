@@ -68,6 +68,26 @@ export default function DashboardPage() {
   useEffect(() => {
     loadUser()
     loadBatchResources()
+
+    // Poll for profile completion updates every 10 seconds when page is visible
+    const pollInterval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        loadUser()
+      }
+    }, 10000) // 10 seconds
+
+    // Also reload when page becomes visible (user switches back to tab)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        loadUser()
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      clearInterval(pollInterval)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
   }, [loadUser, loadBatchResources])
 
   const handleLogout = async () => {
@@ -98,8 +118,9 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-5xl mx-auto">
           {/* Profile Card */}
           <Link href="/profile">
-            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer border border-blue-100 dark:border-blue-800 hover:scale-105">
-              <div className="flex items-center space-x-4 mb-4">
+            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer border border-blue-100 dark:border-blue-800 hover:scale-105 min-h-[280px] flex flex-col justify-between">
+              <div>
+                <div className="flex items-center space-x-4 mb-4">
                 <div className="w-14 h-14 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
                   <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -122,6 +143,7 @@ export default function DashboardPage() {
                   />
                 </div>
               </div>
+              </div>
               <div className="flex items-center text-indigo-600 dark:text-indigo-400 font-semibold group">
                 <span>Complete Now</span>
                 <svg className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -132,58 +154,44 @@ export default function DashboardPage() {
           </Link>
 
           {/* Resources Card */}
-          <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 border border-purple-100 dark:border-purple-800">
-            <div className="flex items-center space-x-4 mb-4">
-              <div className="w-14 h-14 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl flex items-center justify-center shadow-lg">
-                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
-                </svg>
+          <Link href="/dashboard/resources">
+            <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer border border-purple-100 dark:border-purple-800 hover:scale-105 min-h-[280px] flex flex-col justify-between">
+              <div>
+                <div className="flex items-center space-x-4 mb-4">
+                <div className="w-14 h-14 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl flex items-center justify-center shadow-lg">
+                  <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
+                  </svg>
+                </div>
+                <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Resources</h2>
               </div>
-              <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Resources</h2>
-            </div>
-            
-            {resourcesLoading ? (
-              <div className="flex justify-center py-8">
-                <svg className="animate-spin h-8 w-8 text-purple-600 dark:text-purple-400" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-              </div>
-            ) : batchResources.length === 0 ? (
               <p className="text-slate-600 dark:text-slate-300 mb-4">
-                No resources available for your batch yet
+                Access study materials and documents shared with your batch
               </p>
-            ) : (
-              <div className="space-y-2 mb-4 max-h-48 overflow-y-auto">
-                {batchResources.slice(0, 5).map((resource) => (
-                  <div key={resource.id} className="flex items-center justify-between p-2 bg-white dark:bg-slate-700 rounded-lg hover:bg-purple-50 dark:hover:bg-slate-600 transition-colors">
-                    <span className="text-sm text-slate-700 dark:text-slate-300 truncate flex-1" title={resource.title}>
-                      {resource.title}
-                    </span>
-                    <a
-                      href={`/api/resources/${resource.id}?download=true`}
-                      download
-                      className="ml-2 px-3 py-1 bg-purple-600 text-white text-xs rounded hover:bg-purple-700 transition-colors font-medium shadow-sm"
-                    >
-                      Download
-                    </a>
-                  </div>
-                ))}
               </div>
-            )}
-            
-            <div className="flex items-center text-purple-600 dark:text-purple-400 font-semibold">
-              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-              </svg>
-              <span>{batchResources.length} Resource{batchResources.length !== 1 ? 's' : ''} Available</span>
+              <div className="flex items-center text-purple-600 dark:text-purple-400 font-semibold group">
+                {resourcesLoading ? (
+                  <span>Loading...</span>
+                ) : (
+                  <>
+                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                    </svg>
+                    <span>{batchResources.length} Resource{batchResources.length !== 1 ? 's' : ''} Available</span>
+                    <svg className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                    </svg>
+                  </>
+                )}
+              </div>
             </div>
-          </div>
+          </Link>
 
           {/* Events Card */}
           <Link href="/events">
-            <div className="bg-gradient-to-br from-pink-50 to-red-50 dark:from-pink-900/20 dark:to-red-900/20 rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer border border-pink-100 dark:border-pink-800 hover:scale-105">
-              <div className="flex items-center space-x-4 mb-4">
+            <div className="bg-gradient-to-br from-pink-50 to-red-50 dark:from-pink-900/20 dark:to-red-900/20 rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer border border-pink-100 dark:border-pink-800 hover:scale-105 min-h-[280px] flex flex-col justify-between">
+              <div>
+                <div className="flex items-center space-x-4 mb-4">
                 <div className="w-14 h-14 bg-gradient-to-br from-pink-500 to-red-600 rounded-xl flex items-center justify-center shadow-lg">
                   <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -194,6 +202,7 @@ export default function DashboardPage() {
               <p className="text-slate-600 dark:text-slate-300 mb-4">
                 View the events calendar to stay updated on upcoming events
               </p>
+              </div>
               <div className="flex items-center text-pink-600 dark:text-pink-400 font-semibold group">
                 <span>View Calendar</span>
                 <svg className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -204,8 +213,9 @@ export default function DashboardPage() {
           </Link>
 
           {/* Tasks Card */}
-          <div className="bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-900/20 dark:to-blue-900/20 rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer border border-indigo-100 dark:border-indigo-800 hover:scale-105">
-            <div className="flex items-center space-x-4 mb-4">
+          <div className="bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-900/20 dark:to-blue-900/20 rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer border border-indigo-100 dark:border-indigo-800 hover:scale-105 min-h-[280px] flex flex-col justify-between">
+            <div>
+              <div className="flex items-center space-x-4 mb-4">
               <div className="w-14 h-14 bg-gradient-to-br from-indigo-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
                 <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
@@ -216,6 +226,7 @@ export default function DashboardPage() {
             <p className="text-slate-600 dark:text-slate-300 mb-4">
               View your to-do list here: track your tasks and stay on top of your work!
             </p>
+            </div>
             <div className="flex items-center text-indigo-600 dark:text-indigo-400 font-semibold group">
               <span>Learn More</span>
               <svg className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">

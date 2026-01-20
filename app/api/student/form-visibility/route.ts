@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getSessionFromRequest } from '@/lib/auth'
 
+export const dynamic = 'force-dynamic'
+
 // GET form visibility settings for the current student based on their batch
 export async function GET(req: NextRequest) {
   try {

@@ -176,8 +176,18 @@ export async function POST(req: NextRequest) {
     if (data.languageTest) studentData.languageTest = data.languageTest
     if (data.languageTestScore) studentData.languageTestScore = data.languageTestScore
     
+    // Get form visibility for the batch
+    const batch = await prisma.batch.findUnique({
+      where: { id: batchId },
+      include: {
+        formVisibility: true,
+      },
+    })
+    
+    const formVisibility = batch?.formVisibility || null
+    
     // Calculate profile completion
-    const profileCompletion = calculateProfileCompletion(studentData)
+    const profileCompletion = calculateProfileCompletion(studentData, formVisibility)
     studentData.profileCompletion = profileCompletion
 
     const student = await prisma.student.create({

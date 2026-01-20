@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getSessionFromRequest } from '@/lib/auth'
+import { calculateProfileCompletion } from '@/lib/profile-completion'
 
 // GET all form visibility settings for all batches
 export async function GET(req: NextRequest) {
@@ -109,10 +110,31 @@ export async function POST(req: NextRequest) {
       },
     })
 
+    // Recalculate profile completion for all students in this batch
+    const students = await prisma.student.findMany({
+      where: { batchId },
+      include: {
+        documents: true,
+        workExperiences: true,
+      },
+    })
+
+    // Update profile completion for each student
+    const updatePromises = students.map(student => {
+      const newCompletion = calculateProfileCompletion(student, visibility)
+      return prisma.student.update({
+        where: { id: student.id },
+        data: { profileCompletion: newCompletion },
+      })
+    })
+
+    await Promise.all(updatePromises)
+
     return NextResponse.json({
       success: true,
       message: 'Form visibility settings updated successfully',
       formVisibility: visibility,
+      studentsUpdated: students.length,
     })
   } catch (error) {
     console.error('Error updating form visibility settings:', error)

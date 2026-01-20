@@ -5,6 +5,8 @@ import { requireAuth } from '@/lib/auth'
 import { createAuditLog } from '@/lib/audit'
 import { calculateProfileCompletion } from '@/lib/profile-completion'
 
+export const dynamic = 'force-dynamic'
+
 const updateProfileSchema = z.object({
   firstName: z.string().min(1).optional(),
   lastName: z.string().min(1).optional(),
@@ -117,7 +119,11 @@ export async function GET(req: NextRequest) {
     const student = await prisma.student.findUnique({
       where: { userId: session.userId },
       include: {
-        batch: true,
+        batch: {
+          include: {
+            formVisibility: true,
+          },
+        },
         user: {
           select: {
             email: true,
@@ -169,6 +175,11 @@ export async function PUT(req: NextRequest) {
     const student = await prisma.student.findUnique({
       where: { userId: session.userId },
       include: {
+        batch: {
+          include: {
+            formVisibility: true,
+          },
+        },
         workExperiences: true,
         documents: true,
       },
@@ -184,10 +195,12 @@ export async function PUT(req: NextRequest) {
     const body = await req.json()
     const data = updateProfileSchema.parse(body)
 
+    const formVisibility = student.batch?.formVisibility || null
+
     const profileCompletion = calculateProfileCompletion({
       ...student,
       ...data,
-    })
+    }, formVisibility)
 
     // Update student profile
     const updatedStudent = await prisma.student.update({

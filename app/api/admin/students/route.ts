@@ -3,6 +3,8 @@ import { requireAdmin } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
 
+export const dynamic = 'force-dynamic'
+
 const querySchema = z.object({
   page: z.string().nullable().optional().transform(val => parseInt(val || '1')),
   limit: z.string().nullable().optional().transform(val => parseInt(val || '50')),

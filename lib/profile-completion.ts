@@ -31,10 +31,25 @@ interface ProfileData {
   passportPhoto?: string | null
 }
 
+interface FormVisibility {
+  personalDetails?: boolean
+  education?: boolean
+  travel?: boolean
+  workDetails?: boolean
+  financials?: boolean
+  documents?: boolean
+  courseDetails?: boolean
+  university?: boolean
+  postAdmission?: boolean
+}
+
 // Total number of profile sections
 const TOTAL_SECTIONS = 9
 
-export function calculateProfileCompletion(profile: ProfileData): number {
+export function calculateProfileCompletion(
+  profile: ProfileData,
+  formVisibility?: FormVisibility | null
+): number {
   const isFieldFilled = (value: any): boolean => {
     if (value === null || value === undefined || value === '') return false
     if (typeof value === 'string' && value.trim() === '') return false
@@ -140,9 +155,33 @@ export function calculateProfileCompletion(profile: ProfileData): number {
     postAdmissionCompleted,
   ]
 
-  const completedCount = sections.filter(Boolean).length
-  // Each section is worth 11.11% (9 sections total)
-  const percentage = parseFloat((completedCount * 11.11).toFixed(2))
+  // Map sections to their visibility settings
+  const sectionVisibilityMap = [
+    { completed: personalCompleted, visible: formVisibility?.personalDetails ?? true },
+    { completed: educationCompleted, visible: formVisibility?.education ?? true },
+    { completed: travelCompleted, visible: formVisibility?.travel ?? true },
+    { completed: workCompleted, visible: formVisibility?.workDetails ?? true },
+    { completed: financialsCompleted, visible: formVisibility?.financials ?? true },
+    { completed: documentsCompleted, visible: formVisibility?.documents ?? true },
+    { completed: courseCompleted, visible: formVisibility?.courseDetails ?? true },
+    { completed: universityCompleted, visible: formVisibility?.university ?? true },
+    { completed: postAdmissionCompleted, visible: formVisibility?.postAdmission ?? true },
+  ]
+
+  // Filter to only count visible sections
+  const visibleSections = sectionVisibilityMap.filter(s => s.visible)
+  const totalVisibleSections = visibleSections.length
+  
+  // If no sections are visible, return 0
+  if (totalVisibleSections === 0) {
+    return 0
+  }
+
+  // Count how many visible sections are completed
+  const completedVisibleCount = visibleSections.filter(s => s.completed).length
+  
+  // Calculate percentage based only on visible sections
+  const percentage = parseFloat(((completedVisibleCount / totalVisibleSections) * 100).toFixed(2))
   
   return percentage
 }

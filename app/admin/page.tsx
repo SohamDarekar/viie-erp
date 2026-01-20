@@ -128,6 +128,7 @@ export default function AdminDashboard() {
     title: '',
     description: '',
     batchId: '',
+    visibilityType: 'BATCH' as 'BATCH' | 'PROGRAM' | 'ALL',
   })
   const [resourceFile, setResourceFile] = useState<File | null>(null)
   
@@ -899,6 +900,7 @@ export default function AdminDashboard() {
       const formData = new FormData()
       formData.append('title', resourceForm.title)
       formData.append('description', resourceForm.description)
+      formData.append('visibilityType', resourceForm.visibilityType)
       formData.append('batchId', resourceForm.batchId)
       formData.append('file', resourceFile)
 
@@ -915,7 +917,7 @@ export default function AdminDashboard() {
       }
 
       setSuccess('Resource uploaded successfully!')
-      setResourceForm({ title: '', description: '', batchId: '' })
+      setResourceForm({ title: '', description: '', batchId: '', visibilityType: 'BATCH' })
       setResourceFile(null)
       await loadResources()
     } catch (err) {

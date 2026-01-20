@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { requireAuth } from '@/lib/auth'
-import { readFile } from '@/lib/file'
+import { requireAuth, requireAdmin } from '@/lib/auth'
+import { readFile, deleteFile } from '@/lib/file'
+import { createAuditLog } from '@/lib/audit'
 
 export async function GET(
   req: NextRequest,
@@ -60,6 +61,52 @@ export async function GET(
     })
   } catch (error) {
     console.error('Download resource error:', error)
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    )
+  }
+}
+
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const session = await requireAdmin()
+
+    const resource = await prisma.resource.findUnique({
+      where: { id: params.id },
+    })
+
+    if (!resource) {
+      return NextResponse.json(
+        { error: 'Resource not found' },
+        { status: 404 }
+      )
+    }
+
+    // Delete the file from storage
+    await deleteFile(resource.storedPath)
+
+    // Delete the resource from database
+    await prisma.resource.delete({
+      where: { id: params.id },
+    })
+
+    // Audit log
+    await createAuditLog({
+      userId: session.userId,
+      action: 'DELETE_RESOURCE',
+      entity: 'Resource',
+      entityId: resource.id,
+      details: { title: resource.title, fileName: resource.fileName },
+      ipAddress: req.headers.get('x-forwarded-for') || req.ip,
+    })
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error('Delete resource error:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
