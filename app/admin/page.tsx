@@ -179,8 +179,7 @@ export default function AdminDashboard() {
   const [itemsPerPage, setItemsPerPage] = useState(10)
 
   useEffect(() => {
-    loadData()
-    loadCurrentUser()
+    checkAuthAndLoadData()
   }, [])
 
   // Reset to page 1 when search changes or items per page changes
@@ -188,20 +187,38 @@ export default function AdminDashboard() {
     setCurrentPage(1)
   }, [studentSearch, itemsPerPage])
 
+  const checkAuthAndLoadData = async () => {
+    const isAuthenticated = await loadCurrentUser()
+    if (isAuthenticated) {
+      await loadData()
+    }
+  }
+
   const loadCurrentUser = async () => {
     try {
       const res = await fetch('/api/auth/me')
-      if (res.ok) {
-        const data = await res.json()
-        setCurrentUser(data.user)
-        console.log('Current user:', data.user)
-        if (data.user.role !== 'ADMIN') {
-          console.error('WARNING: You are not logged in as an ADMIN!')
-          setError('You must be logged in as an admin to access this page')
-        }
+      if (!res.ok) {
+        // Not authenticated, redirect to admin login
+        router.push('/admin/login')
+        return false
       }
+      
+      const data = await res.json()
+      setCurrentUser(data.user)
+      console.log('Current user:', data.user)
+      
+      if (data.user.role !== 'ADMIN') {
+        console.error('WARNING: You are not logged in as an ADMIN!')
+        setError('You must be logged in as an admin to access this page')
+        router.push('/admin/login')
+        return false
+      }
+      
+      return true
     } catch (error) {
       console.error('Failed to load current user:', error)
+      router.push('/admin/login')
+      return false
     }
   }
 
@@ -1026,13 +1043,15 @@ export default function AdminDashboard() {
                 <p className="text-slate-600 text-sm">Manage students, batches, and communications</p>
               </div>
             </div>
-            <Link href="/settings">
-              <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-105">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
-              </div>
-            </Link>
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-2 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-all duration-200 hover:scale-105 font-medium shadow-md"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+              Logout
+            </button>
           </div>
         </div>
       </header>

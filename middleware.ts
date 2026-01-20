@@ -37,14 +37,15 @@ export async function middleware(request: NextRequest) {
   }
 
   // Admin-only routes
-  if (pathname.startsWith('/admin')) {
+  if (pathname.startsWith('/admin') && !pathname.startsWith('/admin/login')) {
     if (session.role !== 'ADMIN') {
+      // If user is logged in but not an admin, redirect to their appropriate dashboard
       return NextResponse.redirect(new URL('/dashboard', request.url))
     }
   }
 
   // Student routes
-  if (pathname.startsWith('/dashboard') || pathname.startsWith('/student')) {
+  if (pathname.startsWith('/dashboard') || pathname.startsWith('/student') || pathname.startsWith('/profile') || pathname.startsWith('/settings') || pathname.startsWith('/events') || pathname.startsWith('/onboarding')) {
     if (session.role !== 'STUDENT') {
       return NextResponse.redirect(new URL('/admin', request.url))
     }

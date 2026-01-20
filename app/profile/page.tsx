@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Card, Button, Input, Alert, LoadingSpinner, Header } from '@/components'
+import { Card, Button, Input, Alert, LoadingSpinner } from '@/components'
 import { 
   FaUser, 
   FaGraduationCap, 
@@ -777,8 +777,6 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-200 dark:from-slate-900 dark:to-slate-800 transition-colors duration-200">
-      <Header />
-
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {alert && (

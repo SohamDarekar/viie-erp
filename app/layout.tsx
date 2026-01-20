@@ -1,24 +1,33 @@
+'use client'
+
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
 import './globals.css'
 import ThemeProvider from '@/components/ThemeProvider'
-
-const inter = Inter({ subsets: ['latin'] })
-
-export const metadata: Metadata = {
-  title: 'VIIE ERP - Student Management System',
-  description: 'Internal ERP system for student lifecycle management',
-}
+import Header from '@/components/Header'
+import { usePathname } from 'next/navigation'
 
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  const pathname = usePathname()
+  const isAdminPage = pathname?.startsWith('/admin')
+
   return (
     <html lang="en-GB" suppressHydrationWarning>
-      <body className={inter.className}>
-        <ThemeProvider>{children}</ThemeProvider>
+      <head>
+        <title>VIIE ERP - Student Management System</title>
+        <meta name="description" content="Internal ERP system for student lifecycle management" />
+        <link rel="icon" href="/img/logo.png" />
+        <link rel="shortcut icon" href="/img/logo.png" />
+        <link rel="apple-touch-icon" href="/img/logo.png" />
+      </head>
+      <body>
+        <ThemeProvider>
+          {!isAdminPage && <Header />}
+          {children}
+        </ThemeProvider>
       </body>
     </html>
   )

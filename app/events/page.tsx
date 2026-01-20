@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Header } from '@/components'
 
 interface Event {
   id: string
@@ -158,7 +157,6 @@ export default function EventsPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-        <Header />
         <main className="max-w-7xl mx-auto px-4 py-8">
           <div className="text-center">Loading events...</div>
         </main>
@@ -168,7 +166,6 @@ export default function EventsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <Header />
       <main className="max-w-7xl mx-auto px-4 py-8">
         <div className="mb-6">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
