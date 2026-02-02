@@ -37,11 +37,11 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-# Create public directory if it doesn't exist
-RUN mkdir -p ./public
-
 # Copy necessary files from builder
 COPY --from=builder /app/package.json ./package.json
+
+# Copy public directory with static assets (images, fonts, etc.)
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
 # Copy standalone output if using output: 'standalone'
 # Uncomment if you add output: 'standalone' to next.config.js
