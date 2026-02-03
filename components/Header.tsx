@@ -20,7 +20,7 @@ export default function Header() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
         <div className="flex justify-between items-center">
           <Link href="/dashboard" className="flex items-center space-x-3 cursor-pointer group">
-            <div className="w-10 h-10 rounded-lg flex items-center justify-center transition-transform duration-200 group-hover:scale-105">
+            <div className="w-10 h-10 flex-shrink-0 rounded-lg flex items-center justify-center transition-transform duration-200 group-hover:scale-105">
               <Image 
                 src="/img/logo.png" 
                 alt="VIIE ERP Logo" 

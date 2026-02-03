@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { requireAuth } from '@/lib/auth'
 import { createAuditLog } from '@/lib/audit'
 import { calculateProfileCompletion } from '@/lib/profile-completion'
+import { validateAndNormalizePhone } from '@/lib/phone'
 
 export const dynamic = 'force-dynamic'
 
@@ -20,8 +21,10 @@ const updateProfileSchema = z.object({
   parentName: z.string().optional(),
   parentPhone: z.string().optional(),
   parentEmail: z.string().optional(),
+  parentRelation: z.string().optional(),
   passportNumber: z.string().optional(),
-  nameAsPerPassport: z.string().optional(),
+  passportGivenName: z.string().optional(),
+  passportLastName: z.string().optional(),
   passportIssueLocation: z.string().optional(),
   passportIssueDate: z.string().optional(),
   passportExpiryDate: z.string().optional(),
@@ -43,14 +46,14 @@ const updateProfileSchema = z.object({
   school: z.string().optional(),
   schoolCountry: z.string().optional(),
   schoolAddress: z.string().optional(),
-  schoolStartDate: z.string().optional(),
-  schoolEndDate: z.string().optional(),
+  schoolStartYear: z.number().int().optional(),
+  schoolEndYear: z.number().int().optional(),
   schoolGrade: z.string().optional(),
   highSchool: z.string().optional(),
   highSchoolCountry: z.string().optional(),
   highSchoolAddress: z.string().optional(),
-  highSchoolStartDate: z.string().optional(),
-  highSchoolEndDate: z.string().optional(),
+  highSchoolStartYear: z.number().int().optional(),
+  highSchoolEndYear: z.number().int().optional(),
   highSchoolGrade: z.string().optional(),
   bachelorsIn: z.string().optional(),
   bachelorsFromInstitute: z.string().optional(),
@@ -66,6 +69,7 @@ const updateProfileSchema = z.object({
   toeflScore: z.string().optional(),
   languageTest: z.string().optional(),
   languageTestScore: z.string().optional(),
+  languageTestDate: z.string().optional(),
   // Financial fields
   personalEverEmployed: z.string().optional(),
   personalTakingLoan: z.string().optional(),
@@ -195,6 +199,29 @@ export async function PUT(req: NextRequest) {
     const body = await req.json()
     const data = updateProfileSchema.parse(body)
 
+    // Validate and normalize phone numbers if provided
+    if (data.phone !== undefined && data.phone !== null && data.phone !== '') {
+      const phoneValidation = validateAndNormalizePhone(data.phone)
+      if (!phoneValidation.isValid) {
+        return NextResponse.json(
+          { error: `Invalid phone number: ${phoneValidation.error}` },
+          { status: 400 }
+        )
+      }
+      data.phone = phoneValidation.normalized
+    }
+    
+    if (data.parentPhone !== undefined && data.parentPhone !== null && data.parentPhone !== '') {
+      const parentPhoneValidation = validateAndNormalizePhone(data.parentPhone)
+      if (!parentPhoneValidation.isValid) {
+        return NextResponse.json(
+          { error: `Invalid parent phone number: ${parentPhoneValidation.error}` },
+          { status: 400 }
+        )
+      }
+      data.parentPhone = parentPhoneValidation.normalized
+    }
+
     const formVisibility = student.batch?.formVisibility || null
 
     const profileCompletion = calculateProfileCompletion({
@@ -219,8 +246,10 @@ export async function PUT(req: NextRequest) {
         ...(data.parentName !== undefined && { parentName: data.parentName }),
         ...(data.parentPhone !== undefined && { parentPhone: data.parentPhone }),
         ...(data.parentEmail !== undefined && { parentEmail: data.parentEmail }),
+        ...(data.parentRelation !== undefined && { parentRelation: data.parentRelation }),
         ...(data.passportNumber !== undefined && { passportNumber: data.passportNumber }),
-        ...(data.nameAsPerPassport !== undefined && { nameAsPerPassport: data.nameAsPerPassport }),
+        ...(data.passportGivenName !== undefined && { passportGivenName: data.passportGivenName }),
+        ...(data.passportLastName !== undefined && { passportLastName: data.passportLastName }),
         ...(data.passportIssueLocation !== undefined && { passportIssueLocation: data.passportIssueLocation }),
         ...(data.passportIssueDate && { passportIssueDate: new Date(data.passportIssueDate) }),
         ...(data.passportExpiryDate && { passportExpiryDate: new Date(data.passportExpiryDate) }),
@@ -237,14 +266,14 @@ export async function PUT(req: NextRequest) {
         ...(data.school !== undefined && { school: data.school }),
         ...(data.schoolCountry !== undefined && { schoolCountry: data.schoolCountry }),
         ...(data.schoolAddress !== undefined && { schoolAddress: data.schoolAddress }),
-        ...(data.schoolStartDate && { schoolStartDate: new Date(data.schoolStartDate) }),
-        ...(data.schoolEndDate && { schoolEndDate: new Date(data.schoolEndDate) }),
+        ...(data.schoolStartYear !== undefined && { schoolStartYear: data.schoolStartYear }),
+        ...(data.schoolEndYear !== undefined && { schoolEndYear: data.schoolEndYear }),
         ...(data.schoolGrade !== undefined && { schoolGrade: data.schoolGrade }),
         ...(data.highSchool !== undefined && { highSchool: data.highSchool }),
         ...(data.highSchoolCountry !== undefined && { highSchoolCountry: data.highSchoolCountry }),
         ...(data.highSchoolAddress !== undefined && { highSchoolAddress: data.highSchoolAddress }),
-        ...(data.highSchoolStartDate && { highSchoolStartDate: new Date(data.highSchoolStartDate) }),
-        ...(data.highSchoolEndDate && { highSchoolEndDate: new Date(data.highSchoolEndDate) }),
+        ...(data.highSchoolStartYear !== undefined && { highSchoolStartYear: data.highSchoolStartYear }),
+        ...(data.highSchoolEndYear !== undefined && { highSchoolEndYear: data.highSchoolEndYear }),
         ...(data.highSchoolGrade !== undefined && { highSchoolGrade: data.highSchoolGrade }),
         ...(data.bachelorsIn !== undefined && { bachelorsIn: data.bachelorsIn }),
         ...(data.bachelorsFromInstitute !== undefined && { bachelorsFromInstitute: data.bachelorsFromInstitute }),
@@ -255,7 +284,12 @@ export async function PUT(req: NextRequest) {
         ...(data.bachelorsGrade !== undefined && { bachelorsGrade: data.bachelorsGrade }),
         ...(data.bachelorsCompleted !== undefined && { bachelorsCompleted: data.bachelorsCompleted }),
         ...(data.greTaken !== undefined && { greTaken: data.greTaken }),
+        ...(data.greScore !== undefined && { greScore: data.greScore }),
         ...(data.toeflTaken !== undefined && { toeflTaken: data.toeflTaken }),
+        ...(data.toeflScore !== undefined && { toeflScore: data.toeflScore }),
+        ...(data.languageTest !== undefined && { languageTest: data.languageTest }),
+        ...(data.languageTestScore !== undefined && { languageTestScore: data.languageTestScore }),
+        ...(data.languageTestDate && { languageTestDate: new Date(data.languageTestDate) }),
         // Financial fields
         ...(data.personalEverEmployed !== undefined && { personalEverEmployed: data.personalEverEmployed }),
         ...(data.personalTakingLoan !== undefined && { personalTakingLoan: data.personalTakingLoan }),

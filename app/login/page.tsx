@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 
 export default function LoginPage() {
@@ -41,13 +41,22 @@ export default function LoginPage() {
         return
       }
 
-      // Redirect based on role
-      if (data.user.role === 'ADMIN') {
-        router.push('/admin')
-      } else if (!data.user.hasCompletedOnboarding) {
-        router.push('/onboarding')
+      // Check for stored redirect path
+      const storedPath = sessionStorage.getItem('redirectAfterLogin')
+      sessionStorage.removeItem('redirectAfterLogin') // Clear it
+      
+      if (storedPath && storedPath !== '/login') {
+        // Redirect to the stored URL
+        router.push(storedPath)
       } else {
-        router.push('/dashboard')
+        // Default redirect based on role
+        if (data.user.role === 'ADMIN') {
+          router.push('/admin')
+        } else if (!data.user.hasCompletedOnboarding) {
+          router.push('/onboarding')
+        } else {
+          router.push('/dashboard')
+        }
       }
     } catch (err) {
       setError('An error occurred')

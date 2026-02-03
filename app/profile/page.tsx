@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Card, Button, Input, Alert, LoadingSpinner } from '@/components'
+import { PhoneInput } from 'react-international-phone'
 import { 
   FaUser, 
   FaGraduationCap, 
@@ -71,7 +72,8 @@ interface ProfileData {
   countryOfBirth: string
   nativeLanguage: string
   passportNumber: string
-  nameAsPerPassport: string
+  passportGivenName: string
+  passportLastName: string
   passportIssueLocation: string
   passportIssueDate: string
   passportExpiryDate: string
@@ -80,6 +82,11 @@ interface ProfileData {
   program: string
   intakeYear: number | null
   batchName: string
+  // Parent/Guardian fields
+  parentName: string
+  parentPhone: string
+  parentEmail: string
+  parentRelation: string
   // Travel fields
   travelHistory: TravelEntry[]
   visaRefused: boolean | null
@@ -88,14 +95,14 @@ interface ProfileData {
   school: string
   schoolCountry: string
   schoolAddress: string
-  schoolStartDate: string
-  schoolEndDate: string
+  schoolStartYear: string
+  schoolEndYear: string
   schoolGrade: string
   highSchool: string
   highSchoolCountry: string
   highSchoolAddress: string
-  highSchoolStartDate: string
-  highSchoolEndDate: string
+  highSchoolStartYear: string
+  highSchoolEndYear: string
   highSchoolGrade: string
   bachelorsCompleted: boolean
   bachelorsIn: string
@@ -197,7 +204,8 @@ export default function ProfilePage() {
     countryOfBirth: '',
     nativeLanguage: '',
     passportNumber: '',
-    nameAsPerPassport: '',
+    passportGivenName: '',
+    passportLastName: '',
     passportIssueLocation: '',
     passportIssueDate: '',
     passportExpiryDate: '',
@@ -206,6 +214,11 @@ export default function ProfilePage() {
     program: '',
     intakeYear: null,
     batchName: '',
+    // Parent/Guardian fields
+    parentName: '',
+    parentPhone: '',
+    parentEmail: '',
+    parentRelation: '',
     // Travel fields
     travelHistory: [],
     visaRefused: null,
@@ -214,14 +227,14 @@ export default function ProfilePage() {
     school: '',
     schoolCountry: '',
     schoolAddress: '',
-    schoolStartDate: '',
-    schoolEndDate: '',
+    schoolStartYear: '',
+    schoolEndYear: '',
     schoolGrade: '',
     highSchool: '',
     highSchoolCountry: '',
     highSchoolAddress: '',
-    highSchoolStartDate: '',
-    highSchoolEndDate: '',
+    highSchoolStartYear: '',
+    highSchoolEndYear: '',
     highSchoolGrade: '',
     bachelorsCompleted: false,
     bachelorsIn: '',
@@ -276,7 +289,8 @@ export default function ProfilePage() {
         countryOfBirth: student.countryOfBirth || '',
         nativeLanguage: student.nativeLanguage || '',
         passportNumber: student.passportNumber || '',
-        nameAsPerPassport: student.nameAsPerPassport || '',
+        passportGivenName: student.passportGivenName || '',
+        passportLastName: student.passportLastName || '',
         passportIssueLocation: student.passportIssueLocation || '',
         passportIssueDate: student.passportIssueDate ? new Date(student.passportIssueDate).toISOString().split('T')[0] : '',
         passportExpiryDate: student.passportExpiryDate ? new Date(student.passportExpiryDate).toISOString().split('T')[0] : '',
@@ -285,6 +299,11 @@ export default function ProfilePage() {
         program: student.program || '',
         intakeYear: student.intakeYear ?? null,
         batchName: student.batch?.name || '',
+        // Parent/Guardian fields
+        parentName: student.parentName || '',
+        parentPhone: student.parentPhone || '',
+        parentEmail: student.parentEmail || '',
+        parentRelation: student.parentRelation || '',
         // Travel fields
         travelHistory: student.travelHistory || [],
         visaRefused: student.visaRefused ?? null,
@@ -293,14 +312,14 @@ export default function ProfilePage() {
         school: student.school || '',
         schoolCountry: student.schoolCountry || '',
         schoolAddress: student.schoolAddress || '',
-        schoolStartDate: student.schoolStartDate ? new Date(student.schoolStartDate).toISOString().split('T')[0] : '',
-        schoolEndDate: student.schoolEndDate ? new Date(student.schoolEndDate).toISOString().split('T')[0] : '',
+        schoolStartYear: student.schoolStartYear?.toString() || '',
+        schoolEndYear: student.schoolEndYear?.toString() || '',
         schoolGrade: student.schoolGrade || '',
         highSchool: student.highSchool || '',
         highSchoolCountry: student.highSchoolCountry || '',
         highSchoolAddress: student.highSchoolAddress || '',
-        highSchoolStartDate: student.highSchoolStartDate ? new Date(student.highSchoolStartDate).toISOString().split('T')[0] : '',
-        highSchoolEndDate: student.highSchoolEndDate ? new Date(student.highSchoolEndDate).toISOString().split('T')[0] : '',
+        highSchoolStartYear: student.highSchoolStartYear?.toString() || '',
+        highSchoolEndYear: student.highSchoolEndYear?.toString() || '',
         highSchoolGrade: student.highSchoolGrade || '',
         bachelorsCompleted: student.bachelorsCompleted || false,
         bachelorsIn: student.bachelorsIn || '',
@@ -588,47 +607,46 @@ export default function ProfilePage() {
 
   // Helper function to render file upload UI
   const renderFileUpload = (key: string, label: string) => (
-    <div key={key} className="mb-4">
+    <div key={key} className="mb-6">
       <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">{label}</label>
       {existingFinancialDocs[key] ? (
-        <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800 flex items-center justify-between">
-          <span className="text-sm text-green-700 dark:text-green-400">✓ Uploaded: {existingFinancialDocs[key].fileName}</span>
-          <button
-            onClick={() => handleRemoveFinancialDocument(existingFinancialDocs[key].id, key)}
-            className="px-3 py-1 bg-red-500 text-white text-sm rounded hover:bg-red-600"
-            disabled={uploading}
-          >
-            Remove
-          </button>
-        </div>
-      ) : (
-        <div className="flex items-center gap-3">
-          <label className="cursor-pointer px-6 py-2 bg-indigo-400 text-white rounded-lg hover:bg-indigo-500 transition-all text-sm font-semibold">
-            Browse...
-            <input
-              type="file"
-              className="hidden"
-              accept=".pdf"
-              onChange={(e) => {
-                const file = e.target.files?.[0]
-                if (file) setFinancialDocs(prev => ({ ...prev, [key]: file }))
-              }}
-            />
-          </label>
-          <span className="text-sm text-slate-600 dark:text-slate-400">
-            {financialDocs[key]?.name || 'No file selected.'}
-          </span>
-          {financialDocs[key] && (
+        <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+          <div className="flex items-center justify-between gap-2">
             <button
-              onClick={() => handleFinancialFileUpload(financialDocs[key]!, key)}
-              className="px-6 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-all text-sm font-semibold"
-              disabled={uploading}
+              onClick={() => window.open(`/api/documents/${existingFinancialDocs[key].id}`, '_blank')}
+              className="text-sm text-green-700 dark:text-green-300 hover:text-green-900 dark:hover:text-green-100 underline cursor-pointer text-left flex-1"
             >
-              Upload
+              ✓ Uploaded: {existingFinancialDocs[key].fileName}
             </button>
-          )}
+            <button
+              onClick={() => handleRemoveFinancialDocument(existingFinancialDocs[key].id, key)}
+              className="px-3 py-1 text-xs font-medium text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={uploading}
+              title="Remove this document"
+            >
+              Remove
+            </button>
+          </div>
         </div>
-      )}
+      ) : null}
+      <div className="flex flex-col sm:flex-row gap-2 mt-2">
+        <input
+          type="file"
+          className="w-full sm:flex-1 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 dark:file:bg-indigo-900/50 dark:file:text-indigo-300"
+          accept=".pdf"
+          onChange={(e) => {
+            const file = e.target.files?.[0]
+            if (file) setFinancialDocs(prev => ({ ...prev, [key]: file }))
+          }}
+        />
+        <button
+          onClick={() => financialDocs[key] && handleFinancialFileUpload(financialDocs[key]!, key)}
+          className="w-full sm:w-auto px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+          disabled={!financialDocs[key] || uploading}
+        >
+          {uploading ? 'Uploading...' : 'Upload'}
+        </button>
+      </div>
     </div>
   )
 
@@ -707,6 +725,21 @@ export default function ProfilePage() {
       // Remove fields that are not part of the update schema
       delete savePayload.batchName  // This is a computed field from batch relationship
       delete savePayload.email  // Email is read-only
+      
+      // Convert education year strings to integers
+      const yearFields = ['schoolStartYear', 'schoolEndYear', 'highSchoolStartYear', 'highSchoolEndYear']
+      yearFields.forEach(field => {
+        if (savePayload[field] && savePayload[field] !== '') {
+          const year = parseInt(savePayload[field])
+          if (!isNaN(year)) {
+            savePayload[field] = year
+          } else {
+            delete savePayload[field]
+          }
+        } else {
+          delete savePayload[field]
+        }
+      })
       
       // Remove empty string values, null values, and empty arrays
       Object.keys(savePayload).forEach(key => {
@@ -885,17 +918,35 @@ export default function ProfilePage() {
                         value={profile.email}
                         disabled
                         placeholder="Enter your email"
-                        className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors bg-gray-50 cursor-not-allowed"
+                        className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-gray-50 dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors cursor-not-allowed"
                       />
                     </div>
                     <div>
                       <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">Phone Number</label>
-                      <input
-                        type="tel"
+                      <PhoneInput
+                        defaultCountry="in"
+                        forceDialCode
                         value={profile.phone}
-                        onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
-                        placeholder="Enter your contact"
-                        className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        onChange={(phone) => setProfile({ ...profile, phone })}
+                        countrySelectorStyleProps={{
+                          buttonClassName: 'px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-slate-700',
+                          buttonStyle: {
+                            height: '48px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                          }
+                        }}
+                        inputStyle={{
+                          height: '48px',
+                          fontSize: '16px',
+                          borderTopLeftRadius: '0',
+                          borderBottomLeftRadius: '0',
+                          borderTopRightRadius: '0.5rem',
+                          borderBottomRightRadius: '0.5rem',
+                          width: '100%',
+                        }}
+                        inputClassName="border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
                       />
                     </div>
                     <div>
@@ -961,12 +1012,22 @@ export default function ProfilePage() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">Name as per passport</label>
+                      <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">Given Name on Passport</label>
                       <input
                         type="text"
-                        value={profile.nameAsPerPassport}
-                        onChange={(e) => setProfile({ ...profile, nameAsPerPassport: e.target.value })}
-                        placeholder="Enter your name as per passport"
+                        value={profile.passportGivenName}
+                        onChange={(e) => setProfile({ ...profile, passportGivenName: e.target.value })}
+                        placeholder="Enter given name as per passport"
+                        className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">Last Name on Passport</label>
+                      <input
+                        type="text"
+                        value={profile.passportLastName}
+                        onChange={(e) => setProfile({ ...profile, passportLastName: e.target.value })}
+                        placeholder="Enter last name as per passport"
                         className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
                       />
                     </div>
@@ -1020,6 +1081,71 @@ export default function ProfilePage() {
                     </div>
                   </div>
 
+                  {/* Parent/Guardian Contact Section */}
+                  <div className="mt-8 pt-6 border-t border-slate-200 dark:border-slate-600">
+                    <h3 className="text-xl font-bold text-indigo-600 dark:text-indigo-400 mb-6">Parent/Guardian Contact</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">Parent/Guardian Name</label>
+                        <input
+                          type="text"
+                          value={profile.parentName}
+                          onChange={(e) => setProfile({ ...profile, parentName: e.target.value })}
+                          placeholder="Enter parent/guardian name"
+                          className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">Relation</label>
+                        <input
+                          type="text"
+                          value={profile.parentRelation}
+                          onChange={(e) => setProfile({ ...profile, parentRelation: e.target.value })}
+                          placeholder="Father, Mother, Guardian, etc."
+                          className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">Parent/Guardian Phone</label>
+                        <PhoneInput
+                          defaultCountry="in"
+                          forceDialCode
+                          value={profile.parentPhone}
+                          onChange={(phone) => setProfile({ ...profile, parentPhone: phone })}
+                          countrySelectorStyleProps={{
+                            buttonClassName: 'px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-slate-700',
+                            buttonStyle: {
+                              height: '48px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '8px',
+                            }
+                          }}
+                          inputStyle={{
+                            height: '48px',
+                            fontSize: '16px',
+                            borderTopLeftRadius: '0',
+                            borderBottomLeftRadius: '0',
+                            borderTopRightRadius: '0.5rem',
+                            borderBottomRightRadius: '0.5rem',
+                            width: '100%',
+                          }}
+                          inputClassName="border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">Parent/Guardian Email</label>
+                        <input
+                          type="email"
+                          value={profile.parentEmail}
+                          onChange={(e) => setProfile({ ...profile, parentEmail: e.target.value })}
+                          placeholder="Enter email address"
+                          className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
                   {/* Course Details Section */}
                   <div className="mt-8 pt-6 border-t border-slate-200 dark:border-slate-600">
                     <h3 className="text-xl font-bold text-indigo-600 dark:text-indigo-400 mb-6">Course Details</h3>
@@ -1051,7 +1177,7 @@ export default function ProfilePage() {
                           type="text"
                           value={profile.batchName}
                           disabled
-                          className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors bg-gray-50 cursor-not-allowed"
+                          className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-gray-50 dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors cursor-not-allowed"
                         />
                       </div>
                     </div>
@@ -1331,22 +1457,22 @@ export default function ProfilePage() {
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">School Start Date</label>
+                        <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">School Start Year</label>
                         <input
-                          type="date"
-                          value={profile.schoolStartDate}
-                          onChange={(e) => setProfile({ ...profile, schoolStartDate: e.target.value })}
-                          placeholder="Enter your school start date"
+                          type="number"
+                          value={profile.schoolStartYear}
+                          onChange={(e) => setProfile({ ...profile, schoolStartYear: e.target.value })}
+                          placeholder="Enter your school start year"
                           className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">School End Date</label>
+                        <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">School End Year</label>
                         <input
-                          type="date"
-                          value={profile.schoolEndDate}
-                          onChange={(e) => setProfile({ ...profile, schoolEndDate: e.target.value })}
-                          placeholder="Enter your school end date"
+                          type="number"
+                          value={profile.schoolEndYear}
+                          onChange={(e) => setProfile({ ...profile, schoolEndYear: e.target.value })}
+                          placeholder="Enter your school end year"
                           className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         />
                       </div>
@@ -1398,22 +1524,22 @@ export default function ProfilePage() {
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">High School Start Date</label>
+                        <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">High School Start Year</label>
                         <input
-                          type="date"
-                          value={profile.highSchoolStartDate}
-                          onChange={(e) => setProfile({ ...profile, highSchoolStartDate: e.target.value })}
-                          placeholder="Enter your high school start date"
+                          type="number"
+                          value={profile.highSchoolStartYear}
+                          onChange={(e) => setProfile({ ...profile, highSchoolStartYear: e.target.value })}
+                          placeholder="Enter your high school start year"
                           className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">High School End Date</label>
+                        <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">High School End Year</label>
                         <input
-                          type="date"
-                          value={profile.highSchoolEndDate}
-                          onChange={(e) => setProfile({ ...profile, highSchoolEndDate: e.target.value })}
-                          placeholder="Enter your high school end date"
+                          type="number"
+                          value={profile.highSchoolEndYear}
+                          onChange={(e) => setProfile({ ...profile, highSchoolEndYear: e.target.value })}
+                          placeholder="Enter your high school end year"
                           className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         />
                       </div>
@@ -2293,16 +2419,34 @@ export default function ProfilePage() {
                                     <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">
                                       Phone <span className="text-red-500">*</span>
                                     </label>
-                                    <input
-                                      type="tel"
-                                      className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                      placeholder="Enter reference phone"
+                                    <PhoneInput
+                                      defaultCountry="in"
+                                      forceDialCode
                                       value={experience.referencePhone}
-                                      onChange={(e) => {
+                                      onChange={(phone) => {
                                         const updated = [...workExperiences]
-                                        updated[index].referencePhone = e.target.value
+                                        updated[index].referencePhone = phone
                                         setWorkExperiences(updated)
                                       }}
+                                      countrySelectorStyleProps={{
+                                        buttonClassName: 'px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-slate-700',
+                                        buttonStyle: {
+                                          height: '48px',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          gap: '8px',
+                                        }
+                                      }}
+                                      inputStyle={{
+                                        height: '48px',
+                                        fontSize: '16px',
+                                        borderTopLeftRadius: '0',
+                                        borderBottomLeftRadius: '0',
+                                        borderTopRightRadius: '0.5rem',
+                                        borderBottomRightRadius: '0.5rem',
+                                        width: '100%',
+                                      }}
+                                      inputClassName="border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
                                     />
                                   </div>
 
@@ -2792,6 +2936,49 @@ export default function ProfilePage() {
                   <div className="bg-slate-50 dark:bg-slate-700/50 p-6 rounded-lg border-2 border-indigo-200 dark:border-indigo-800">
                     <h3 className="text-xl font-semibold text-indigo-700 dark:text-indigo-400 mb-4">Required Documents</h3>
                     
+                    {/* Passport Document */}
+                    <div className="mb-6">
+                      <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">Passport (PDF only)</label>
+                      {existingDocs.passport ? (
+                        <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                          <div className="flex items-center justify-between gap-2">
+                            <button
+                              onClick={() => handleViewDocument(existingDocs.passport!.id)}
+                              className="text-sm text-green-700 dark:text-green-300 hover:text-green-900 dark:hover:text-green-100 underline cursor-pointer text-left flex-1"
+                            >
+                              ✓ Uploaded: {existingDocs.passport.fileName}
+                            </button>
+                            <button
+                              onClick={() => handleRemoveDocument(existingDocs.passport!.id, 'PASSPORT')}
+                              className="px-3 py-1 text-xs font-medium text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                              disabled={uploading}
+                              title="Remove this document"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        </div>
+                      ) : null}
+                      <div className="flex flex-col sm:flex-row gap-2 mt-2">
+                        <input
+                          type="file"
+                          accept=".pdf"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0]
+                            if (file) setPassport(file)
+                          }}
+                          className="w-full sm:flex-1 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 dark:file:bg-indigo-900/50 dark:file:text-indigo-300"
+                        />
+                        <button
+                          onClick={() => passport && handleFileUpload(passport, 'PASSPORT')}
+                          disabled={!passport || uploading}
+                          className="w-full sm:w-auto px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                        >
+                          {uploading ? 'Uploading...' : 'Upload'}
+                        </button>
+                      </div>
+                    </div>
+
                     {renderFileUpload('AFFIDAVIT', 'Affidavits')}
                     {renderFileUpload('CV_RESUME', 'CV / Resume *')}
                     {renderFileUpload('SOP', 'Statement of Purpose (SOP) *')}

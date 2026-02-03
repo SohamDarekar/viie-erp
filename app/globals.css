@@ -10,6 +10,9 @@
 @tailwind components;
 @tailwind utilities;
 
+/* React International Phone Styles */
+@import 'react-international-phone/style.css';
+
 @layer base {
   body {
     @apply text-slate-900 dark:text-slate-100 transition-colors duration-200;

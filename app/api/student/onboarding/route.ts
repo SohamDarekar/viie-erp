@@ -5,6 +5,8 @@ import { requireAuth } from '@/lib/auth'
 import { assignStudentToBatch } from '@/lib/batch'
 import { createAuditLog } from '@/lib/audit'
 import { calculateProfileCompletion } from '@/lib/profile-completion'
+import { saveFile } from '@/lib/file'
+import { validateAndNormalizePhone } from '@/lib/phone'
 
 const workExperienceSchema = z.object({
   jobTitle: z.string().min(1),
@@ -40,8 +42,10 @@ const onboardingSchema = z.object({
   parentName: z.string().optional(),
   parentPhone: z.string().optional(),
   parentEmail: z.string().optional(),
+  parentRelation: z.string().optional(),
   passportNumber: z.string().optional(),
-  nameAsPerPassport: z.string().optional(),
+  passportGivenName: z.string().optional(),
+  passportLastName: z.string().optional(),
   passportIssueLocation: z.string().optional(),
   passportIssueDate: z.string().optional(),
   passportExpiryDate: z.string().optional(),
@@ -56,14 +60,14 @@ const onboardingSchema = z.object({
   school: z.string().optional(),
   schoolCountry: z.string().optional(),
   schoolAddress: z.string().optional(),
-  schoolStartDate: z.string().optional(),
-  schoolEndDate: z.string().optional(),
+  schoolStartYear: z.number().int().optional(), // Changed from Date string
+  schoolEndYear: z.number().int().optional(), // Changed from Date string
   schoolGrade: z.string().optional(),
   highSchool: z.string().optional(),
   highSchoolCountry: z.string().optional(),
   highSchoolAddress: z.string().optional(),
-  highSchoolStartDate: z.string().optional(),
-  highSchoolEndDate: z.string().optional(),
+  highSchoolStartYear: z.number().int().optional(), // Changed from Date string
+  highSchoolEndYear: z.number().int().optional(), // Changed from Date string
   highSchoolGrade: z.string().optional(),
   bachelorsIn: z.string().optional(),
   bachelorsFromInstitute: z.string().optional(),
@@ -79,6 +83,7 @@ const onboardingSchema = z.object({
   toeflScore: z.string().optional(),
   languageTest: z.string().optional(),
   languageTestScore: z.string().optional(),
+  languageTestDate: z.string().optional(), // Added
 })
 
 export async function POST(req: NextRequest) {
@@ -104,8 +109,76 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const body = await req.json()
-    const data = onboardingSchema.parse(body)
+    // Check content type to determine how to parse the request
+    const contentType = req.headers.get('content-type') || ''
+    let body: any
+    let files: { marksheet10th?: File; marksheet12th?: File; ieltsScorecard?: File; passport?: File; languageTestScorecard?: File } = {}
+
+    if (contentType.includes('multipart/form-data')) {
+      // Handle FormData for file uploads
+      const formData = await req.formData()
+      body = {}
+      
+      // Convert FormData to object and extract files
+      formData.forEach((value, key) => {
+        if (value instanceof File) {
+          // Store files separately
+          if (key === 'marksheet10th' || key === 'marksheet12th' || key === 'ieltsScorecard' || key === 'passport' || key === 'languageTestScorecard') {
+            files[key as keyof typeof files] = value
+          }
+        } else if (typeof value === 'string') {
+          body[key] = value
+        }
+      })
+      
+      // Convert year fields to numbers for FormData
+      const yearFields = ['schoolStartYear', 'schoolEndYear', 'highSchoolStartYear', 'highSchoolEndYear', 'intakeYear']
+      yearFields.forEach(field => {
+        if (body[field] !== undefined && body[field] !== null && body[field] !== '') {
+          const parsed = parseInt(body[field])
+          if (!isNaN(parsed)) {
+            body[field] = parsed
+          }
+        }
+      })
+      
+    } else {
+      // Handle JSON
+      try {
+        const rawBody = await req.text()
+        console.log('Raw JSON body:', rawBody.substring(0, 300))
+        body = JSON.parse(rawBody)
+      } catch (parseError: any) {
+        console.error('JSON Parse Error:', parseError.message)
+        return NextResponse.json(
+          { error: 'Invalid request format. Please check your input and try again.' },
+          { status: 400 }
+        )
+      }
+    }
+    
+    // Convert year fields to numbers if they exist and are valid
+    const yearFields = ['schoolStartYear', 'schoolEndYear', 'highSchoolStartYear', 'highSchoolEndYear', 'intakeYear']
+    yearFields.forEach(field => {
+      if (body[field] !== undefined && body[field] !== null && body[field] !== '') {
+        const parsed = parseInt(body[field])
+        if (!isNaN(parsed)) {
+          body[field] = parsed
+        }
+      }
+    })
+    
+    // Validate with Zod
+    let data
+    try {
+      data = onboardingSchema.parse(body)
+    } catch (validationError: any) {
+      console.error('Validation Error:', validationError)
+      return NextResponse.json(
+        { error: 'Invalid input', details: validationError.errors },
+        { status: 400 }
+      )
+    }
 
     // Automatic batch assignment using transaction
     const batchId = await assignStudentToBatch({
@@ -131,17 +204,43 @@ export async function POST(req: NextRequest) {
     
     // Add optional personal fields
     if (data.email) studentData.email = data.email
-    if (data.phone) studentData.phone = data.phone
+    
+    // Validate and normalize phone number (server-side validation)
+    if (data.phone) {
+      const phoneValidation = validateAndNormalizePhone(data.phone)
+      if (!phoneValidation.isValid) {
+        return NextResponse.json(
+          { error: `Invalid phone number: ${phoneValidation.error}` },
+          { status: 400 }
+        )
+      }
+      studentData.phone = phoneValidation.normalized
+    }
+    
+    // Validate and normalize parent phone number
+    if (data.parentPhone) {
+      const parentPhoneValidation = validateAndNormalizePhone(data.parentPhone)
+      if (!parentPhoneValidation.isValid) {
+        return NextResponse.json(
+          { error: `Invalid parent phone number: ${parentPhoneValidation.error}` },
+          { status: 400 }
+        )
+      }
+      studentData.parentPhone = parentPhoneValidation.normalized
+    }
+    
     if (data.dateOfBirth) studentData.dateOfBirth = new Date(data.dateOfBirth)
     if (data.gender) studentData.gender = data.gender
     if (data.nationality) studentData.nationality = data.nationality
     if (data.countryOfBirth) studentData.countryOfBirth = data.countryOfBirth
     if (data.nativeLanguage) studentData.nativeLanguage = data.nativeLanguage
     if (data.parentName) studentData.parentName = data.parentName
-    if (data.parentPhone) studentData.parentPhone = data.parentPhone
+    // parentPhone already handled with validation above
     if (data.parentEmail) studentData.parentEmail = data.parentEmail
+    if (data.parentRelation) studentData.parentRelation = data.parentRelation
     if (data.passportNumber) studentData.passportNumber = data.passportNumber
-    if (data.nameAsPerPassport) studentData.nameAsPerPassport = data.nameAsPerPassport
+    if (data.passportGivenName) studentData.passportGivenName = data.passportGivenName
+    if (data.passportLastName) studentData.passportLastName = data.passportLastName
     if (data.passportIssueLocation) studentData.passportIssueLocation = data.passportIssueLocation
     if (data.passportIssueDate) studentData.passportIssueDate = new Date(data.passportIssueDate)
     if (data.passportExpiryDate) studentData.passportExpiryDate = new Date(data.passportExpiryDate)
@@ -152,14 +251,14 @@ export async function POST(req: NextRequest) {
     if (data.school) studentData.school = data.school
     if (data.schoolCountry) studentData.schoolCountry = data.schoolCountry
     if (data.schoolAddress) studentData.schoolAddress = data.schoolAddress
-    if (data.schoolStartDate) studentData.schoolStartDate = new Date(data.schoolStartDate)
-    if (data.schoolEndDate) studentData.schoolEndDate = new Date(data.schoolEndDate)
+    if (data.schoolStartYear) studentData.schoolStartYear = data.schoolStartYear // Now an Int
+    if (data.schoolEndYear) studentData.schoolEndYear = data.schoolEndYear // Now an Int
     if (data.schoolGrade) studentData.schoolGrade = data.schoolGrade
     if (data.highSchool) studentData.highSchool = data.highSchool
     if (data.highSchoolCountry) studentData.highSchoolCountry = data.highSchoolCountry
     if (data.highSchoolAddress) studentData.highSchoolAddress = data.highSchoolAddress
-    if (data.highSchoolStartDate) studentData.highSchoolStartDate = new Date(data.highSchoolStartDate)
-    if (data.highSchoolEndDate) studentData.highSchoolEndDate = new Date(data.highSchoolEndDate)
+    if (data.highSchoolStartYear) studentData.highSchoolStartYear = data.highSchoolStartYear // Now an Int
+    if (data.highSchoolEndYear) studentData.highSchoolEndYear = data.highSchoolEndYear // Now an Int
     if (data.highSchoolGrade) studentData.highSchoolGrade = data.highSchoolGrade
     if (data.bachelorsIn) studentData.bachelorsIn = data.bachelorsIn
     if (data.bachelorsFromInstitute) studentData.bachelorsFromInstitute = data.bachelorsFromInstitute
@@ -175,6 +274,7 @@ export async function POST(req: NextRequest) {
     if (data.toeflScore) studentData.toeflScore = data.toeflScore
     if (data.languageTest) studentData.languageTest = data.languageTest
     if (data.languageTestScore) studentData.languageTestScore = data.languageTestScore
+    if (data.languageTestDate) studentData.languageTestDate = new Date(data.languageTestDate) // Added
     
     // Get form visibility for the batch
     const batch = await prisma.batch.findUnique({
@@ -229,6 +329,120 @@ export async function POST(req: NextRequest) {
             },
           })
         }
+      }
+    }
+
+    // Handle file uploads and create Document records
+    const fileUploadPromises = []
+    
+    if (files.marksheet10th) {
+      const filePromise = saveFile(files.marksheet10th, {
+        allowedTypes: ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'],
+        maxSize: 10 * 1024 * 1024, // 10MB
+        studentId: student.id,
+      }).then(async (fileData) => {
+        await prisma.document.create({
+          data: {
+            studentId: student.id,
+            type: 'MARKSHEET_10TH',
+            fileName: fileData.fileName,
+            storedPath: fileData.storedPath,
+            fileSize: fileData.fileSize,
+            mimeType: files.marksheet10th!.type,
+          },
+        })
+      })
+      fileUploadPromises.push(filePromise)
+    }
+
+    if (files.marksheet12th) {
+      const filePromise = saveFile(files.marksheet12th, {
+        allowedTypes: ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'],
+        maxSize: 10 * 1024 * 1024, // 10MB
+        studentId: student.id,
+      }).then(async (fileData) => {
+        await prisma.document.create({
+          data: {
+            studentId: student.id,
+            type: 'MARKSHEET_12TH',
+            fileName: fileData.fileName,
+            storedPath: fileData.storedPath,
+            fileSize: fileData.fileSize,
+            mimeType: files.marksheet12th!.type,
+          },
+        })
+      })
+      fileUploadPromises.push(filePromise)
+    }
+
+    if (files.ieltsScorecard) {
+      const filePromise = saveFile(files.ieltsScorecard, {
+        allowedTypes: ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'],
+        maxSize: 10 * 1024 * 1024, // 10MB
+        studentId: student.id,
+      }).then(async (fileData) => {
+        await prisma.document.create({
+          data: {
+            studentId: student.id,
+            type: 'LANGUAGE_TEST_SCORECARD',
+            fileName: fileData.fileName,
+            storedPath: fileData.storedPath,
+            fileSize: fileData.fileSize,
+            mimeType: files.ieltsScorecard!.type,
+          },
+        })
+      })
+      fileUploadPromises.push(filePromise)
+    }
+
+    if (files.passport) {
+      const filePromise = saveFile(files.passport, {
+        allowedTypes: ['application/pdf'],
+        maxSize: 10 * 1024 * 1024, // 10MB
+        studentId: student.id,
+      }).then(async (fileData) => {
+        await prisma.document.create({
+          data: {
+            studentId: student.id,
+            type: 'PASSPORT',
+            fileName: fileData.fileName,
+            storedPath: fileData.storedPath,
+            fileSize: fileData.fileSize,
+            mimeType: files.passport!.type,
+          },
+        })
+      })
+      fileUploadPromises.push(filePromise)
+    }
+
+    if (files.languageTestScorecard) {
+      const filePromise = saveFile(files.languageTestScorecard, {
+        allowedTypes: ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'],
+        maxSize: 10 * 1024 * 1024, // 10MB
+        studentId: student.id,
+      }).then(async (fileData) => {
+        await prisma.document.create({
+          data: {
+            studentId: student.id,
+            type: 'LANGUAGE_TEST_SCORECARD',
+            fileName: fileData.fileName,
+            storedPath: fileData.storedPath,
+            fileSize: fileData.fileSize,
+            mimeType: files.languageTestScorecard!.type,
+          },
+        })
+      })
+      fileUploadPromises.push(filePromise)
+    }
+
+    // Wait for all file uploads to complete
+    if (fileUploadPromises.length > 0) {
+      try {
+        await Promise.all(fileUploadPromises)
+        console.log('Successfully uploaded', fileUploadPromises.length, 'documents')
+      } catch (fileError) {
+        console.error('Error uploading files:', fileError)
+        // Continue even if file upload fails - student record is created
       }
     }
 

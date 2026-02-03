@@ -51,7 +51,7 @@ model Student {
   firstName      String
   lastName       String
   email          String? // Duplicate for convenience, also in User
-  phone          String?
+  phone          String? // E.164 format: +[country code][national number] (max 15 chars per ITU-T E.164)
   dateOfBirth    DateTime?
   gender         String?
   nationality    String?
@@ -63,13 +63,15 @@ model Student {
   passportPhoto     String?
 
   // Parent/Guardian Contact Information
-  parentName  String?
-  parentPhone String?
-  parentEmail String?
+  parentName     String?
+  parentPhone    String? // E.164 format: +[country code][national number]
+  parentEmail    String?
+  parentRelation String? // Father, Mother, or custom relation
 
   // Passport Information
   passportNumber        String?
-  nameAsPerPassport     String?
+  passportGivenName     String?
+  passportLastName      String?
   passportIssueLocation String?
   passportIssueDate     DateTime?
   passportExpiryDate    DateTime?
@@ -83,16 +85,16 @@ model Student {
   school            String?
   schoolCountry     String?
   schoolAddress     String?
-  schoolStartDate   DateTime?
-  schoolEndDate     DateTime?
+  schoolStartYear   Int? // Changed from DateTime to Int (year only)
+  schoolEndYear     Int? // Changed from DateTime to Int (year only)
   schoolGrade       String? // Percentage
   
   // High School (12th grade)
   highSchool          String?
   highSchoolCountry   String?
   highSchoolAddress   String?
-  highSchoolStartDate DateTime?
-  highSchoolEndDate   DateTime?
+  highSchoolStartYear Int? // Changed from DateTime to Int (year only)
+  highSchoolEndYear   Int? // Changed from DateTime to Int (year only)
   highSchoolGrade     String? // Percentage
   
   // Bachelor's Degree
@@ -112,6 +114,7 @@ model Student {
   toeflScore String?
   languageTest String? // IELTS, PTE, Duolingo
   languageTestScore String?
+  languageTestDate DateTime? // Added test date
 
   // Travel History
   travelHistory Json? // Array of {startDate, endDate, country, reason}

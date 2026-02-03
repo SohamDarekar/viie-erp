@@ -202,7 +202,8 @@ async function main() {
           
           // Passport info
           passportNumber: generatePassportNumber(),
-          nameAsPerPassport: `${firstName} ${lastName}`,
+          passportGivenName: firstName,
+          passportLastName: lastName,
           passportIssueLocation: randomItem(countries),
           passportIssueDate,
           passportExpiryDate,
