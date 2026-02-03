@@ -208,7 +208,7 @@ export async function PUT(req: NextRequest) {
           { status: 400 }
         )
       }
-      data.phone = phoneValidation.normalized
+      data.phone = phoneValidation.normalized || undefined
     }
     
     if (data.parentPhone !== undefined && data.parentPhone !== null && data.parentPhone !== '') {
@@ -219,7 +219,7 @@ export async function PUT(req: NextRequest) {
           { status: 400 }
         )
       }
-      data.parentPhone = parentPhoneValidation.normalized
+      data.parentPhone = parentPhoneValidation.normalized || undefined
     }
 
     const formVisibility = student.batch?.formVisibility || null
