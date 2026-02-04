@@ -1070,9 +1070,10 @@ export default function ProfilePage() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">Postal Code</label>
+                      <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">Postal Code *</label>
                       <input
                         type="text"
+                        required
                         value={profile.postalCode}
                         onChange={(e) => setProfile({ ...profile, postalCode: e.target.value })}
                         placeholder="Enter your postal code"
@@ -1358,7 +1359,7 @@ export default function ProfilePage() {
                               const file = e.target.files?.[0]
                               if (file) setAadharCard(file)
                             }}
-                            className="w-full sm:flex-1 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 dark:file:bg-indigo-900/50 dark:file:text-indigo-300"
+                            className="w-full sm:flex-1 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
                           />
                           <button
                             onClick={() => aadharCard && handleFileUpload(aadharCard, 'AADHAR_CARD')}
@@ -1401,7 +1402,7 @@ export default function ProfilePage() {
                               const file = e.target.files?.[0]
                               if (file) setDriversLicense(file)
                             }}
-                            className="w-full sm:flex-1 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 dark:file:bg-indigo-900/50 dark:file:text-indigo-300"
+                            className="w-full sm:flex-1 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
                           />
                           <button
                             onClick={() => driversLicense && handleFileUpload(driversLicense, 'DRIVERS_LICENSE')}
@@ -1788,7 +1789,7 @@ export default function ProfilePage() {
                               const file = e.target.files?.[0]
                               if (file) setMarksheet12th(file)
                             }}
-                            className="w-full sm:flex-1 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 dark:file:bg-indigo-900/50 dark:file:text-indigo-300"
+                            className="w-full sm:flex-1 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
                           />
                           <button
                             onClick={() => marksheet12th && handleFileUpload(marksheet12th, 'MARKSHEET_12TH')}
@@ -1994,7 +1995,7 @@ export default function ProfilePage() {
                             const newHistory = profile.travelHistory.filter((_, i) => i !== index)
                             setProfile({ ...profile, travelHistory: newHistory })
                           }}
-                          className="mt-4 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors font-medium"
+                          className="mt-4 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-all text-sm font-semibold"
                         >
                           Remove
                         </button>

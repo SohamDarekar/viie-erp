@@ -395,9 +395,18 @@ export default function OnboardingPage() {
       }
       if (!formData.gender) errors.gender = 'Gender is required'
       
+      // Validate nationality, country of birth, native language - MANDATORY
+      if (!formData.nationality.trim()) errors.nationality = 'Nationality is required'
+      if (!formData.countryOfBirth.trim()) errors.countryOfBirth = 'Country of birth is required'
+      if (!formData.nativeLanguage.trim()) errors.nativeLanguage = 'Native language is required'
+      
       // Validate address - MANDATORY
       if (!formData.address.trim()) {
         errors.address = 'Address is required'
+      }
+      // Validate postal code - MANDATORY
+      if (!formData.postalCode.trim()) {
+        errors.postalCode = 'Postal code is required'
       }
       
       // Validate passport if provided
@@ -754,7 +763,7 @@ export default function OnboardingPage() {
 
         {/* Form Card */}
         <div className="bg-white rounded-3xl shadow-2xl p-8 md:p-10 animate-slide-up">
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-6" onKeyDown={handleFormKeyDown}>
             {error && (
               <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-start">
                 <svg className="w-5 h-5 mr-2 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
@@ -939,31 +948,64 @@ export default function OnboardingPage() {
                     )}
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Nationality</label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Nationality *</label>
                     <input
                       type="text"
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      required
+                      className={`w-full px-4 py-3 border ${fieldErrors.nationality ? 'border-red-500' : 'border-gray-300'} rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500`}
                       value={formData.nationality}
-                      onChange={(e) => setFormData({ ...formData, nationality: e.target.value })}
+                      onChange={(e) => {
+                        setFormData({ ...formData, nationality: e.target.value })
+                        if (fieldErrors.nationality) {
+                          const newErrors = { ...fieldErrors }
+                          delete newErrors.nationality
+                          setFieldErrors(newErrors)
+                        }
+                      }}
                     />
+                    {fieldErrors.nationality && (
+                      <p className="mt-1 text-sm text-red-600 error-message">{fieldErrors.nationality}</p>
+                    )}
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Country of Birth</label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Country of Birth *</label>
                     <input
                       type="text"
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      required
+                      className={`w-full px-4 py-3 border ${fieldErrors.countryOfBirth ? 'border-red-500' : 'border-gray-300'} rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500`}
                       value={formData.countryOfBirth}
-                      onChange={(e) => setFormData({ ...formData, countryOfBirth: e.target.value })}
+                      onChange={(e) => {
+                        setFormData({ ...formData, countryOfBirth: e.target.value })
+                        if (fieldErrors.countryOfBirth) {
+                          const newErrors = { ...fieldErrors }
+                          delete newErrors.countryOfBirth
+                          setFieldErrors(newErrors)
+                        }
+                      }}
                     />
+                    {fieldErrors.countryOfBirth && (
+                      <p className="mt-1 text-sm text-red-600 error-message">{fieldErrors.countryOfBirth}</p>
+                    )}
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Native Language</label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Native Language *</label>
                     <input
                       type="text"
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      required
+                      className={`w-full px-4 py-3 border ${fieldErrors.nativeLanguage ? 'border-red-500' : 'border-gray-300'} rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500`}
                       value={formData.nativeLanguage}
-                      onChange={(e) => setFormData({ ...formData, nativeLanguage: e.target.value })}
+                      onChange={(e) => {
+                        setFormData({ ...formData, nativeLanguage: e.target.value })
+                        if (fieldErrors.nativeLanguage) {
+                          const newErrors = { ...fieldErrors }
+                          delete newErrors.nativeLanguage
+                          setFieldErrors(newErrors)
+                        }
+                      }}
                     />
+                    {fieldErrors.nativeLanguage && (
+                      <p className="mt-1 text-sm text-red-600 error-message">{fieldErrors.nativeLanguage}</p>
+                    )}
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Passport Number (8-12 alphanumeric)</label>
@@ -1109,13 +1151,24 @@ export default function OnboardingPage() {
                     )}
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Postal Code</label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Postal Code *</label>
                     <input
                       type="text"
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      required
+                      className={`w-full px-4 py-3 border ${fieldErrors.postalCode ? 'border-red-500' : 'border-gray-300'} rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500`}
                       value={formData.postalCode}
-                      onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })}
+                      onChange={(e) => {
+                        setFormData({ ...formData, postalCode: e.target.value })
+                        if (fieldErrors.postalCode) {
+                          const newErrors = { ...fieldErrors }
+                          delete newErrors.postalCode
+                          setFieldErrors(newErrors)
+                        }
+                      }}
                     />
+                    {fieldErrors.postalCode && (
+                      <p className="mt-1 text-sm text-red-600 error-message">{fieldErrors.postalCode}</p>
+                    )}
                   </div>
                 </div>
 
@@ -1747,4 +1800,11 @@ export default function OnboardingPage() {
       </div>
     </div>
   )
+}
+
+// Prevent Enter key from submitting the form
+const handleFormKeyDown = (e: React.KeyboardEvent<HTMLFormElement>) => {
+  if (e.key === 'Enter') {
+    e.preventDefault()
+  }
 }

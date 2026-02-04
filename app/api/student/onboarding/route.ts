@@ -50,7 +50,7 @@ const onboardingSchema = z.object({
   passportIssueDate: z.string().optional(),
   passportExpiryDate: z.string().optional(),
   address: z.string().optional(),
-  postalCode: z.string().optional(),
+  postalCode: z.string().min(1),
   program: z.enum(['BS', 'BBA']),
   intakeYear: z.number().int().min(2020),
   hasWorkExperience: z.boolean().optional(),
