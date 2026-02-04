@@ -412,6 +412,11 @@ export default function OnboardingPage() {
         if (passportDateError) errors.passportExpiryDate = passportDateError
       }
       
+      // Validate parent/guardian name - MANDATORY
+      if (!formData.parentName.trim()) {
+        errors.parentName = 'Parent/Guardian name is required'
+      }
+      
       // Validate parent/guardian phone - MANDATORY
       if (!formData.parentPhone.trim()) {
         errors.parentPhone = 'Parent/Guardian phone number is required'
@@ -1119,13 +1124,24 @@ export default function OnboardingPage() {
                   <h4 className="text-lg font-semibold text-gray-800 mb-4">Parent/Guardian Contact *</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">Parent/Guardian Name</label>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">Parent/Guardian Name *</label>
                       <input
                         type="text"
-                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                        required
+                        className={`w-full px-4 py-3 border ${fieldErrors.parentName ? 'border-red-500' : 'border-gray-300'} rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white`}
                         value={formData.parentName}
-                        onChange={(e) => setFormData({ ...formData, parentName: e.target.value })}
+                        onChange={(e) => {
+                          setFormData({ ...formData, parentName: e.target.value })
+                          if (fieldErrors.parentName) {
+                            const newErrors = { ...fieldErrors }
+                            delete newErrors.parentName
+                            setFieldErrors(newErrors)
+                          }
+                        }}
                       />
+                      {fieldErrors.parentName && (
+                        <p className="mt-1 text-sm text-red-600 error-message">{fieldErrors.parentName}</p>
+                      )}
                     </div>
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-2">Relation *</label>
