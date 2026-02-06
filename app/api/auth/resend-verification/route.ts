@@ -37,11 +37,15 @@ export async function POST(req: NextRequest) {
     // Generate new verification token
     const verificationToken = crypto.randomBytes(32).toString('hex')
 
+    console.log(`[Resend Verification] Generated new token for ${email}: ${verificationToken.substring(0, 10)}...`)
+
     // Update user with new token
-    await prisma.user.update({
+    const updatedUser = await prisma.user.update({
       where: { id: user.id },
       data: { verificationToken },
     })
+
+    console.log(`[Resend Verification] Token saved to DB: ${updatedUser.verificationToken?.substring(0, 10)}...`)
 
     // Send verification email
     // Get the base URL from the request headers to support both dev and prod
@@ -49,6 +53,8 @@ export async function POST(req: NextRequest) {
     const host = req.headers.get('host')
     const baseUrl = host ? `${protocol}://${host}` : (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000')
     const verificationUrl = `${baseUrl}/api/auth/verify-email?token=${verificationToken}`
+    
+    console.log(`[Resend Verification] Verification URL: ${verificationUrl.substring(0, 50)}...`)
     
     try {
       const emailTemplate = getEmailVerificationTemplate(email, verificationUrl)

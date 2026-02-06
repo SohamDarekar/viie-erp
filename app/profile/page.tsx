@@ -3,8 +3,13 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Card, Button, Input, Alert, LoadingSpinner } from '@/components'
+import { Card } from '@/components'
+import Button from '@/components/Button'
+import Input from '@/components/Input'
+import Alert from '@/components/Alert'
+import LoadingSpinner from '@/components/LoadingSpinner'
 import { PhoneInput } from 'react-international-phone'
+import { CountryDropdown, Country } from '@/components/CountryDropdown'
 import { 
   FaUser, 
   FaGraduationCap, 
@@ -97,12 +102,16 @@ interface ProfileData {
   schoolAddress: string
   schoolStartYear: string
   schoolEndYear: string
+  schoolBoard: string
+  schoolBoardOther: string
   schoolGrade: string
   highSchool: string
   highSchoolCountry: string
   highSchoolAddress: string
   highSchoolStartYear: string
   highSchoolEndYear: string
+  highSchoolBoard: string
+  highSchoolBoardOther: string
   highSchoolGrade: string
   bachelorsCompleted: boolean
   bachelorsIn: string
@@ -161,6 +170,9 @@ export default function ProfilePage() {
     passport?: { id: string; fileName: string };
     aadharCard?: { id: string; fileName: string };
     driversLicense?: { id: string; fileName: string };
+    greScorecard?: { id: string; fileName: string };
+    toeflScorecard?: { id: string; fileName: string };
+    languageTestScorecard?: { id: string; fileName: string };
     [key: string]: { id: string; fileName: string } | undefined;
   }>({})
   const [hasWorkExperience, setHasWorkExperience] = useState<string>('')
@@ -169,6 +181,9 @@ export default function ProfilePage() {
   // Financial document states
   const [financialDocs, setFinancialDocs] = useState<{[key: string]: File | null}>({})
   const [existingFinancialDocs, setExistingFinancialDocs] = useState<{[key: string]: { id: string; fileName: string }}>({})
+
+  // Field errors state
+  const [fieldErrors, setFieldErrors] = useState<{[key: string]: string}>({})
 
   // Form visibility state
   const [formVisibility, setFormVisibility] = useState<{
@@ -200,7 +215,7 @@ export default function ProfilePage() {
     phone: '',
     dateOfBirth: '',
     gender: '',
-    nationality: '',
+    nationality: 'India',
     countryOfBirth: '',
     nativeLanguage: '',
     passportNumber: '',
@@ -229,12 +244,16 @@ export default function ProfilePage() {
     schoolAddress: '',
     schoolStartYear: '',
     schoolEndYear: '',
+    schoolBoard: '',
+    schoolBoardOther: '',
     schoolGrade: '',
     highSchool: '',
     highSchoolCountry: '',
     highSchoolAddress: '',
     highSchoolStartYear: '',
     highSchoolEndYear: '',
+    highSchoolBoard: '',
+    highSchoolBoardOther: '',
     highSchoolGrade: '',
     bachelorsCompleted: false,
     bachelorsIn: '',
@@ -275,7 +294,12 @@ export default function ProfilePage() {
       
       setProfileCompletion(student.profileCompletion || 0)
       if (student.passportPhoto) {
-        setPassportPhotoPreview(`/api/student/passport-photo?path=${encodeURIComponent(student.passportPhoto)}`)
+        // If it's base64, use it directly; otherwise fetch from API
+        if (student.passportPhoto.startsWith('data:image/')) {
+          setPassportPhotoPreview(student.passportPhoto)
+        } else {
+          setPassportPhotoPreview(`/api/student/passport-photo`)
+        }
       }
       
       setProfile({
@@ -314,12 +338,16 @@ export default function ProfilePage() {
         schoolAddress: student.schoolAddress || '',
         schoolStartYear: student.schoolStartYear?.toString() || '',
         schoolEndYear: student.schoolEndYear?.toString() || '',
+        schoolBoard: student.schoolBoard || '',
+        schoolBoardOther: student.schoolBoardOther || '',
         schoolGrade: student.schoolGrade || '',
         highSchool: student.highSchool || '',
         highSchoolCountry: student.highSchoolCountry || '',
         highSchoolAddress: student.highSchoolAddress || '',
         highSchoolStartYear: student.highSchoolStartYear?.toString() || '',
         highSchoolEndYear: student.highSchoolEndYear?.toString() || '',
+        highSchoolBoard: student.highSchoolBoard || '',
+        highSchoolBoardOther: student.highSchoolBoardOther || '',
         highSchoolGrade: student.highSchoolGrade || '',
         bachelorsCompleted: student.bachelorsCompleted || false,
         bachelorsIn: student.bachelorsIn || '',
@@ -474,7 +502,10 @@ export default function ProfilePage() {
                         : type === 'MARKSHEET_12TH' ? existingDocs.marksheet12th
                         : type === 'PASSPORT' ? existingDocs.passport
                         : type === 'AADHAR_CARD' ? existingDocs.aadharCard
-                        : existingDocs.driversLicense
+                        : type === 'DRIVERS_LICENSE' ? existingDocs.driversLicense
+                        : type === 'GRE_SCORECARD' ? existingDocs.greScorecard
+                        : type === 'TOEFL_SCORECARD' ? existingDocs.toeflScorecard
+                        : existingDocs.languageTestScorecard
       if (existingDoc) {
         const deleteRes = await fetch(`/api/documents/${existingDoc.id}`, {
           method: 'DELETE',
@@ -610,29 +641,32 @@ export default function ProfilePage() {
     <div key={key} className="mb-6">
       <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">{label}</label>
       {existingFinancialDocs[key] ? (
-        <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
-          <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center justify-between p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl mb-2">
+          <div className="flex items-center space-x-3">
+            <svg className="w-8 h-8 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
             <button
               onClick={() => window.open(`/api/documents/${existingFinancialDocs[key].id}`, '_blank')}
-              className="text-sm text-green-700 dark:text-green-300 hover:text-green-900 dark:hover:text-green-100 underline cursor-pointer text-left flex-1"
+              className="text-sm font-medium text-gray-900 dark:text-gray-100 hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer text-left"
             >
-              ✓ Uploaded: {existingFinancialDocs[key].fileName}
-            </button>
-            <button
-              onClick={() => handleRemoveFinancialDocument(existingFinancialDocs[key].id, key)}
-              className="px-3 py-1 text-xs font-medium text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={uploading}
-              title="Remove this document"
-            >
-              Remove
+              {existingFinancialDocs[key].fileName}
             </button>
           </div>
+          <button
+            type="button"
+            onClick={() => handleRemoveFinancialDocument(existingFinancialDocs[key].id, key)}
+            disabled={uploading}
+            className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Remove
+          </button>
         </div>
       ) : null}
       <div className="flex flex-col sm:flex-row gap-2 mt-2">
         <input
           type="file"
-          className="w-full sm:flex-1 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 dark:file:bg-indigo-900/50 dark:file:text-indigo-300"
+          className="w-full sm:flex-1 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 file:mr-2 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 dark:file:bg-indigo-900/50 dark:file:text-indigo-300"
           accept=".pdf"
           onChange={(e) => {
             const file = e.target.files?.[0]
@@ -691,9 +725,90 @@ export default function ProfilePage() {
     }
   }, [visibleTabs, activeTab])
 
+  // Validation function
+  const validateRequiredFields = (): boolean => {
+    const errors: {[key: string]: string} = {}
+
+    // Personal Details - Required fields
+    if (!profile.firstName?.trim()) errors.firstName = 'First name is required'
+    if (!profile.lastName?.trim()) errors.lastName = 'Last name is required'
+    if (!profile.phone?.trim()) {
+      errors.phone = 'Phone number is required'
+    }
+    if (!profile.dateOfBirth) {
+      errors.dateOfBirth = 'Date of birth is required'
+    }
+    if (!profile.gender) errors.gender = 'Gender is required'
+    if (!profile.nationality?.trim()) errors.nationality = 'Nationality is required'
+    if (!profile.countryOfBirth?.trim()) errors.countryOfBirth = 'Country of birth is required'
+    if (!profile.nativeLanguage?.trim()) errors.nativeLanguage = 'Native language is required'
+    if (!profile.address?.trim()) errors.address = 'Address is required'
+    if (!profile.postalCode?.trim()) errors.postalCode = 'Postal code is required'
+
+    // Parent/Guardian - Required fields
+    if (!profile.parentName?.trim()) errors.parentName = 'Parent/Guardian name is required'
+    if (!profile.parentPhone?.trim()) {
+      errors.parentPhone = 'Parent/Guardian phone number is required'
+    }
+    if (!profile.parentEmail?.trim()) {
+      errors.parentEmail = 'Parent/Guardian email is required'
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(profile.parentEmail)) {
+      errors.parentEmail = 'Please enter a valid email address'
+    }
+
+    // Program and Intake
+    if (!profile.program) errors.program = 'Program is required'
+    if (!profile.intakeYear) errors.intakeYear = 'Intake year is required'
+
+    // Passport photo - Required
+    if (!passportPhotoPreview && !passportPhoto) {
+      errors.passportPhoto = 'Passport size photo is required'
+    }
+
+    // Aadhar Card - Required
+    if (!existingDocs.aadharCard && !aadharCard) {
+      errors.aadharCard = 'Aadhar Card is required'
+    }
+
+    // Education - Required fields
+    if (!profile.school?.trim()) errors.school = 'School name is required'
+    if (!profile.schoolCountry?.trim()) errors.schoolCountry = 'School country is required'
+    if (!profile.schoolAddress?.trim()) errors.schoolAddress = 'School address is required'
+    if (!profile.schoolStartYear) errors.schoolStartYear = 'School start year is required'
+    if (!profile.schoolEndYear) errors.schoolEndYear = 'School end year is required'
+    if (!profile.schoolBoard) errors.schoolBoard = 'School board is required'
+    if (profile.schoolBoard === 'Other' && !profile.schoolBoardOther?.trim()) {
+      errors.schoolBoardOther = 'Please specify your school board'
+    }
+    if (!profile.schoolGrade?.trim()) errors.schoolGrade = 'School grade is required'
+
+    // 10th Grade Marksheet - Required
+    if (!existingDocs.marksheet10th && !marksheet10th) {
+      errors.marksheet10th = '10th Grade Marksheet is required'
+    }
+
+    setFieldErrors(errors)
+    return Object.keys(errors).length === 0
+  }
+
   const handleSave = async () => {
     setSaving(true)
     setAlert(null)
+
+    // Validate required fields
+    if (!validateRequiredFields()) {
+      setSaving(false)
+      setAlert({ type: 'error', message: 'Please fill in all required fields before saving' })
+      // Scroll to first error
+      setTimeout(() => {
+        const firstErrorElement = document.querySelector('.error-message')
+        if (firstErrorElement) {
+          firstErrorElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        }
+      }, 100)
+      return
+    }
+
     try {
       // Prepare work experiences data (without file objects for now)
       const workExperiencesData = workExperiences.map(exp => ({
@@ -888,28 +1003,52 @@ export default function ProfilePage() {
                 <>
                   {/* Personal Details Tab */}
                   {activeTab === 'personal' && formVisibility.personalDetails && (
-                <div className="space-y-6">
+                    <div className="space-y-6">
                   <h2 className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">Personal Details</h2>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                      <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">First Name</label>
+                      <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">First Name <span className="text-red-500">*</span></label>
                       <input
                         type="text"
                         value={profile.firstName}
-                        onChange={(e) => setProfile({ ...profile, firstName: e.target.value })}
+                        onChange={(e) => {
+                          setProfile({ ...profile, firstName: e.target.value })
+                          if (fieldErrors.firstName) {
+                            const newErrors = { ...fieldErrors }
+                            delete newErrors.firstName
+                            setFieldErrors(newErrors)
+                          }
+                        }}
                         placeholder="Enter your first name"
-                        className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors"
+                        className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors ${
+                          fieldErrors.firstName ? 'border-red-500 dark:border-red-500' : 'border-slate-300 dark:border-slate-600'
+                        }`}
                       />
+                      {fieldErrors.firstName && (
+                        <p className="mt-1 text-sm text-red-600 error-message">{fieldErrors.firstName}</p>
+                      )}
                     </div>
                     <div>
-                      <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">Last Name</label>
+                      <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">Last Name <span className="text-red-500">*</span></label>
                       <input
                         type="text"
                         value={profile.lastName}
-                        onChange={(e) => setProfile({ ...profile, lastName: e.target.value })}
+                        onChange={(e) => {
+                          setProfile({ ...profile, lastName: e.target.value })
+                          if (fieldErrors.lastName) {
+                            const newErrors = { ...fieldErrors }
+                            delete newErrors.lastName
+                            setFieldErrors(newErrors)
+                          }
+                        }}
                         placeholder="Enter your last name"
-                        className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className={`w-full px-4 py-3 border rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                          fieldErrors.lastName ? 'border-red-500 dark:border-red-500' : 'border-slate-300 dark:border-slate-600'
+                        }`}
                       />
+                      {fieldErrors.lastName && (
+                        <p className="mt-1 text-sm text-red-600 error-message">{fieldErrors.lastName}</p>
+                      )}
                     </div>
                     <div>
                       <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">Email</label>
@@ -922,14 +1061,23 @@ export default function ProfilePage() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">Phone Number</label>
+                      <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">Phone Number <span className="text-red-500">*</span></label>
                       <PhoneInput
                         defaultCountry="in"
                         forceDialCode
                         value={profile.phone}
-                        onChange={(phone) => setProfile({ ...profile, phone })}
+                        onChange={(phone) => {
+                          setProfile({ ...profile, phone })
+                          if (fieldErrors.phone) {
+                            const newErrors = { ...fieldErrors }
+                            delete newErrors.phone
+                            setFieldErrors(newErrors)
+                          }
+                        }}
                         countrySelectorStyleProps={{
-                          buttonClassName: 'px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-slate-700',
+                          buttonClassName: `px-4 py-3 border rounded-l-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-slate-700 ${
+                            fieldErrors.phone ? 'border-red-500 dark:border-red-500' : 'border-slate-300 dark:border-slate-600'
+                          }`,
                           buttonStyle: {
                             height: '48px',
                             display: 'flex',
@@ -946,60 +1094,123 @@ export default function ProfilePage() {
                           borderBottomRightRadius: '0.5rem',
                           width: '100%',
                         }}
-                        inputClassName="border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
+                        inputClassName={`bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 ${
+                          fieldErrors.phone ? 'border-red-500 dark:border-red-500' : 'border-slate-300 dark:border-slate-600'
+                        }`}
                       />
+                      {fieldErrors.phone && (
+                        <p className="mt-1 text-sm text-red-600 error-message">{fieldErrors.phone}</p>
+                      )}
                     </div>
                     <div>
-                      <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">Date of Birth</label>
+                      <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">Date of Birth <span className="text-red-500">*</span></label>
                       <input
                         type="date"
                         value={profile.dateOfBirth}
-                        onChange={(e) => setProfile({ ...profile, dateOfBirth: e.target.value })}
-                        className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        onChange={(e) => {
+                          setProfile({ ...profile, dateOfBirth: e.target.value })
+                          if (fieldErrors.dateOfBirth) {
+                            const newErrors = { ...fieldErrors }
+                            delete newErrors.dateOfBirth
+                            setFieldErrors(newErrors)
+                          }
+                        }}
+                        className={`w-full px-4 py-3 border rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                          fieldErrors.dateOfBirth ? 'border-red-500 dark:border-red-500' : 'border-slate-300 dark:border-slate-600'
+                        }`}
                       />
+                      {fieldErrors.dateOfBirth && (
+                        <p className="mt-1 text-sm text-red-600 error-message">{fieldErrors.dateOfBirth}</p>
+                      )}
                     </div>
                     <div>
-                      <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">Gender</label>
+                      <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">Gender <span className="text-red-500">*</span></label>
                       <select
                         value={profile.gender}
-                        onChange={(e) => setProfile({ ...profile, gender: e.target.value })}
-                        className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        onChange={(e) => {
+                          setProfile({ ...profile, gender: e.target.value })
+                          if (fieldErrors.gender) {
+                            const newErrors = { ...fieldErrors }
+                            delete newErrors.gender
+                            setFieldErrors(newErrors)
+                          }
+                        }}
+                        className={`w-full px-4 py-3 border rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                          fieldErrors.gender ? 'border-red-500 dark:border-red-500' : 'border-slate-300 dark:border-slate-600'
+                        }`}
                       >
                         <option value="">Select Gender</option>
                         <option value="Male">Male</option>
                         <option value="Female">Female</option>
                         <option value="Other">Other</option>
                       </select>
+                      {fieldErrors.gender && (
+                        <p className="mt-1 text-sm text-red-600 error-message">{fieldErrors.gender}</p>
+                      )}
                     </div>
                     <div>
-                      <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">Nationality</label>
-                      <input
-                        type="text"
-                        value={profile.nationality}
-                        onChange={(e) => setProfile({ ...profile, nationality: e.target.value })}
-                        placeholder="Enter your nationality"
-                        className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">Nationality <span className="text-red-500">*</span></label>
+                      <CountryDropdown
+                        defaultValue={profile.nationality}
+                        onChange={(country: Country) => {
+                          setProfile({ ...profile, nationality: country.name })
+                          if (fieldErrors.nationality) {
+                            const newErrors = { ...fieldErrors }
+                            delete newErrors.nationality
+                            setFieldErrors(newErrors)
+                          }
+                        }}
+                        placeholder="Select your nationality"
+                        disabled={false}
+                        error={!!fieldErrors.nationality}
                       />
+                      {fieldErrors.nationality && (
+                        <p className="mt-1 text-sm text-red-600 error-message">{fieldErrors.nationality}</p>
+                      )}
                     </div>
                     <div>
-                      <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">Country of Birth</label>
+                      <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">Country of Birth <span className="text-red-500">*</span></label>
                       <input
                         type="text"
                         value={profile.countryOfBirth}
-                        onChange={(e) => setProfile({ ...profile, countryOfBirth: e.target.value })}
+                        onChange={(e) => {
+                          setProfile({ ...profile, countryOfBirth: e.target.value })
+                          if (fieldErrors.countryOfBirth) {
+                            const newErrors = { ...fieldErrors }
+                            delete newErrors.countryOfBirth
+                            setFieldErrors(newErrors)
+                          }
+                        }}
                         placeholder="Enter your birth country"
-                        className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className={`w-full px-4 py-3 border rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                          fieldErrors.countryOfBirth ? 'border-red-500 dark:border-red-500' : 'border-slate-300 dark:border-slate-600'
+                        }`}
                       />
+                      {fieldErrors.countryOfBirth && (
+                        <p className="mt-1 text-sm text-red-600 error-message">{fieldErrors.countryOfBirth}</p>
+                      )}
                     </div>
                     <div>
-                      <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">Native Language</label>
+                      <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">Native Language <span className="text-red-500">*</span></label>
                       <input
                         type="text"
                         value={profile.nativeLanguage}
-                        onChange={(e) => setProfile({ ...profile, nativeLanguage: e.target.value })}
+                        onChange={(e) => {
+                          setProfile({ ...profile, nativeLanguage: e.target.value })
+                          if (fieldErrors.nativeLanguage) {
+                            const newErrors = { ...fieldErrors }
+                            delete newErrors.nativeLanguage
+                            setFieldErrors(newErrors)
+                          }
+                        }}
                         placeholder="Enter your native language"
-                        className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className={`w-full px-4 py-3 border rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                          fieldErrors.nativeLanguage ? 'border-red-500 dark:border-red-500' : 'border-slate-300 dark:border-slate-600'
+                        }`}
                       />
+                      {fieldErrors.nativeLanguage && (
+                        <p className="mt-1 text-sm text-red-600 error-message">{fieldErrors.nativeLanguage}</p>
+                      )}
                     </div>
                     <div>
                       <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">Passport Number</label>
@@ -1060,25 +1271,49 @@ export default function ProfilePage() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">Address</label>
+                      <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">Address <span className="text-red-500">*</span></label>
                       <input
                         type="text"
                         value={profile.address}
-                        onChange={(e) => setProfile({ ...profile, address: e.target.value })}
+                        onChange={(e) => {
+                          setProfile({ ...profile, address: e.target.value })
+                          if (fieldErrors.address) {
+                            const newErrors = { ...fieldErrors }
+                            delete newErrors.address
+                            setFieldErrors(newErrors)
+                          }
+                        }}
                         placeholder="Enter your complete address"
-                        className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className={`w-full px-4 py-3 border rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                          fieldErrors.address ? 'border-red-500 dark:border-red-500' : 'border-slate-300 dark:border-slate-600'
+                        }`}
                       />
+                      {fieldErrors.address && (
+                        <p className="mt-1 text-sm text-red-600 error-message">{fieldErrors.address}</p>
+                      )}
                     </div>
                     <div>
-                      <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">Postal Code *</label>
+                      <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">Postal Code <span className="text-red-500">*</span></label>
                       <input
                         type="text"
                         required
                         value={profile.postalCode}
-                        onChange={(e) => setProfile({ ...profile, postalCode: e.target.value })}
+                        onChange={(e) => {
+                          setProfile({ ...profile, postalCode: e.target.value })
+                          if (fieldErrors.postalCode) {
+                            const newErrors = { ...fieldErrors }
+                            delete newErrors.postalCode
+                            setFieldErrors(newErrors)
+                          }
+                        }}
                         placeholder="Enter your postal code"
-                        className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className={`w-full px-4 py-3 border rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                          fieldErrors.postalCode ? 'border-red-500 dark:border-red-500' : 'border-slate-300 dark:border-slate-600'
+                        }`}
                       />
+                      {fieldErrors.postalCode && (
+                        <p className="mt-1 text-sm text-red-600 error-message">{fieldErrors.postalCode}</p>
+                      )}
                     </div>
                   </div>
 
@@ -1087,14 +1322,26 @@ export default function ProfilePage() {
                     <h3 className="text-xl font-bold text-indigo-600 dark:text-indigo-400 mb-6">Parent/Guardian Contact</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div>
-                        <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">Parent/Guardian Name</label>
+                        <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">Parent/Guardian Name <span className="text-red-500">*</span></label>
                         <input
                           type="text"
                           value={profile.parentName}
-                          onChange={(e) => setProfile({ ...profile, parentName: e.target.value })}
+                          onChange={(e) => {
+                            setProfile({ ...profile, parentName: e.target.value })
+                            if (fieldErrors.parentName) {
+                              const newErrors = { ...fieldErrors }
+                              delete newErrors.parentName
+                              setFieldErrors(newErrors)
+                            }
+                          }}
                           placeholder="Enter parent/guardian name"
-                          className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          className={`w-full px-4 py-3 border rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                            fieldErrors.parentName ? 'border-red-500 dark:border-red-500' : 'border-slate-300 dark:border-slate-600'
+                          }`}
                         />
+                        {fieldErrors.parentName && (
+                          <p className="mt-1 text-sm text-red-600 error-message">{fieldErrors.parentName}</p>
+                        )}
                       </div>
                       <div>
                         <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">Relation</label>
@@ -1107,14 +1354,23 @@ export default function ProfilePage() {
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">Parent/Guardian Phone</label>
+                        <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">Parent/Guardian Phone <span className="text-red-500">*</span></label>
                         <PhoneInput
                           defaultCountry="in"
                           forceDialCode
                           value={profile.parentPhone}
-                          onChange={(phone) => setProfile({ ...profile, parentPhone: phone })}
+                          onChange={(phone) => {
+                            setProfile({ ...profile, parentPhone: phone })
+                            if (fieldErrors.parentPhone) {
+                              const newErrors = { ...fieldErrors }
+                              delete newErrors.parentPhone
+                              setFieldErrors(newErrors)
+                            }
+                          }}
                           countrySelectorStyleProps={{
-                            buttonClassName: 'px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-slate-700',
+                            buttonClassName: `px-4 py-3 border rounded-l-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-slate-700 ${
+                              fieldErrors.parentPhone ? 'border-red-500 dark:border-red-500' : 'border-slate-300 dark:border-slate-600'
+                            }`,
                             buttonStyle: {
                               height: '48px',
                               display: 'flex',
@@ -1131,18 +1387,35 @@ export default function ProfilePage() {
                             borderBottomRightRadius: '0.5rem',
                             width: '100%',
                           }}
-                          inputClassName="border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
+                          inputClassName={`bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 ${
+                            fieldErrors.parentPhone ? 'border-red-500 dark:border-red-500' : 'border-slate-300 dark:border-slate-600'
+                          }`}
                         />
+                        {fieldErrors.parentPhone && (
+                          <p className="mt-1 text-sm text-red-600 error-message">{fieldErrors.parentPhone}</p>
+                        )}
                       </div>
                       <div>
-                        <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">Parent/Guardian Email</label>
+                        <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">Parent/Guardian Email <span className="text-red-500">*</span></label>
                         <input
                           type="email"
                           value={profile.parentEmail}
-                          onChange={(e) => setProfile({ ...profile, parentEmail: e.target.value })}
+                          onChange={(e) => {
+                            setProfile({ ...profile, parentEmail: e.target.value })
+                            if (fieldErrors.parentEmail) {
+                              const newErrors = { ...fieldErrors }
+                              delete newErrors.parentEmail
+                              setFieldErrors(newErrors)
+                            }
+                          }}
                           placeholder="Enter email address"
-                          className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          className={`w-full px-4 py-3 border rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                            fieldErrors.parentEmail ? 'border-red-500 dark:border-red-500' : 'border-slate-300 dark:border-slate-600'
+                          }`}
                         />
+                        {fieldErrors.parentEmail && (
+                          <p className="mt-1 text-sm text-red-600 error-message">{fieldErrors.parentEmail}</p>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1152,25 +1425,49 @@ export default function ProfilePage() {
                     <h3 className="text-xl font-bold text-indigo-600 dark:text-indigo-400 mb-6">Course Details</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div>
-                        <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">Program *</label>
+                        <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">Program <span className="text-red-500">*</span></label>
                         <select
                           value={profile.program}
-                          onChange={(e) => setProfile({ ...profile, program: e.target.value })}
-                          className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          onChange={(e) => {
+                            setProfile({ ...profile, program: e.target.value })
+                            if (fieldErrors.program) {
+                              const newErrors = { ...fieldErrors }
+                              delete newErrors.program
+                              setFieldErrors(newErrors)
+                            }
+                          }}
+                          className={`w-full px-4 py-3 border rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                            fieldErrors.program ? 'border-red-500 dark:border-red-500' : 'border-slate-300 dark:border-slate-600'
+                          }`}
                         >
                           <option value="">Select Program</option>
                           <option value="BS">BS - Bachelor of Science</option>
                           <option value="BBA">BBA - Bachelor of Business Administration</option>
                         </select>
+                        {fieldErrors.program && (
+                          <p className="mt-1 text-sm text-red-600 error-message">{fieldErrors.program}</p>
+                        )}
                       </div>
                       <div>
-                        <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">Intake Year *</label>
+                        <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">Intake Year <span className="text-red-500">*</span></label>
                         <input
                           type="number"
                           value={profile.intakeYear ? profile.intakeYear.toString() : ''}
-                          onChange={(e) => setProfile({ ...profile, intakeYear: e.target.value === '' ? null : parseInt(e.target.value) })}
-                          className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          onChange={(e) => {
+                            setProfile({ ...profile, intakeYear: e.target.value === '' ? null : parseInt(e.target.value) })
+                            if (fieldErrors.intakeYear) {
+                              const newErrors = { ...fieldErrors }
+                              delete newErrors.intakeYear
+                              setFieldErrors(newErrors)
+                            }
+                          }}
+                          className={`w-full px-4 py-3 border rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                            fieldErrors.intakeYear ? 'border-red-500 dark:border-red-500' : 'border-slate-300 dark:border-slate-600'
+                          }`}
                         />
+                        {fieldErrors.intakeYear && (
+                          <p className="mt-1 text-sm text-red-600 error-message">{fieldErrors.intakeYear}</p>
+                        )}
                       </div>
                       <div>
                         <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">Current Batch</label>
@@ -1186,7 +1483,7 @@ export default function ProfilePage() {
 
                   {/* Passport Photo Upload Section */}
                   <div className="mt-8 pt-6 border-t border-slate-200 dark:border-slate-600">
-                    <h3 className="text-xl font-bold text-indigo-600 dark:text-indigo-400 mb-6">Passport Size Photograph</h3>
+                    <h3 className="text-xl font-bold text-indigo-600 dark:text-indigo-400 mb-6">Passport Size Photograph <span className="text-red-500">*</span></h3>
                     <div className="space-y-4">
                       {passportPhotoPreview && (
                         <div className="flex justify-center">
@@ -1240,7 +1537,7 @@ export default function ProfilePage() {
                               reader.readAsDataURL(file)
                             }
                           }}
-                          className="w-full sm:flex-1 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 dark:file:bg-indigo-900/50 dark:file:text-indigo-300"
+                          className="w-full sm:flex-1 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 file:mr-2 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 dark:file:bg-indigo-900/50 dark:file:text-indigo-300"
                         />
                         {passportPhoto && (
                           <button
@@ -1278,6 +1575,9 @@ export default function ProfilePage() {
                       <p className="text-xs text-slate-500 dark:text-slate-400">
                         Upload a recent passport-size photograph (JPEG, PNG, or JPG format)
                       </p>
+                      {fieldErrors.passportPhoto && (
+                        <p className="mt-1 text-sm text-red-600 error-message">{fieldErrors.passportPhoto}</p>
+                      )}
                     </div>
                   </div>
 
@@ -1289,23 +1589,46 @@ export default function ProfilePage() {
                       <div className="space-y-3">
                         <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400">Passport</label>
                         {existingDocs.passport ? (
-                          <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
-                            <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center justify-between p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl mb-2">
+                            <div className="flex items-center space-x-3">
+                              <svg className="w-8 h-8 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                              </svg>
                               <button
                                 onClick={() => handleViewDocument(existingDocs.passport!.id)}
-                                className="text-sm text-green-700 dark:text-green-300 hover:text-green-900 dark:hover:text-green-100 underline cursor-pointer text-left flex-1"
+                                className="text-sm font-medium text-gray-900 dark:text-gray-100 hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer text-left"
                               >
-                                ✓ Uploaded: {existingDocs.passport.fileName}
-                              </button>
-                              <button
-                                onClick={() => handleRemoveDocument(existingDocs.passport!.id, 'PASSPORT')}
-                                disabled={uploading}
-                                className="px-3 py-1 text-xs font-medium text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                title="Remove this document"
-                              >
-                                Remove
+                                {existingDocs.passport.fileName}
                               </button>
                             </div>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveDocument(existingDocs.passport!.id, 'PASSPORT')}
+                              disabled={uploading}
+                              className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        ) : null}
+                        {passport ? (
+                          <div className="flex items-center justify-between p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl mb-2">
+                            <div className="flex items-center space-x-3">
+                              <svg className="w-8 h-8 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                              </svg>
+                              <div>
+                                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{passport.name}</p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">{(passport.size / 1024).toFixed(2)} KB</p>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setPassport(null)}
+                              className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 font-medium text-sm"
+                            >
+                              Remove
+                            </button>
                           </div>
                         ) : null}
                         <div className="flex flex-col sm:flex-row gap-2">
@@ -1316,7 +1639,7 @@ export default function ProfilePage() {
                               const file = e.target.files?.[0]
                               if (file) setPassport(file)
                             }}
-                            className="w-full sm:flex-1 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 dark:file:bg-indigo-900/50 dark:file:text-indigo-300"
+                            className="w-full sm:flex-1 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 file:mr-2 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 dark:file:bg-indigo-900/50 dark:file:text-indigo-300"
                           />
                           <button
                             onClick={() => passport && handleFileUpload(passport, 'PASSPORT')}
@@ -1332,23 +1655,46 @@ export default function ProfilePage() {
                       <div className="space-y-3">
                         <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400">Aadhar Card</label>
                         {existingDocs.aadharCard ? (
-                          <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
-                            <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center justify-between p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl mb-2">
+                            <div className="flex items-center space-x-3">
+                              <svg className="w-8 h-8 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                              </svg>
                               <button
                                 onClick={() => handleViewDocument(existingDocs.aadharCard!.id)}
-                                className="text-sm text-green-700 dark:text-green-300 hover:text-green-900 dark:hover:text-green-100 underline cursor-pointer text-left flex-1"
+                                className="text-sm font-medium text-gray-900 dark:text-gray-100 hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer text-left"
                               >
-                                ✓ Uploaded: {existingDocs.aadharCard.fileName}
-                              </button>
-                              <button
-                                onClick={() => handleRemoveDocument(existingDocs.aadharCard!.id, 'AADHAR_CARD')}
-                                disabled={uploading}
-                                className="px-3 py-1 text-xs font-medium text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                title="Remove this document"
-                              >
-                                Remove
+                                {existingDocs.aadharCard.fileName}
                               </button>
                             </div>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveDocument(existingDocs.aadharCard!.id, 'AADHAR_CARD')}
+                              disabled={uploading}
+                              className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        ) : null}
+                        {aadharCard ? (
+                          <div className="flex items-center justify-between p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl mb-2">
+                            <div className="flex items-center space-x-3">
+                              <svg className="w-8 h-8 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                              </svg>
+                              <div>
+                                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{aadharCard.name}</p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">{(aadharCard.size / 1024).toFixed(2)} KB</p>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setAadharCard(null)}
+                              className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 font-medium text-sm"
+                            >
+                              Remove
+                            </button>
                           </div>
                         ) : null}
                         <div className="flex flex-col sm:flex-row gap-2">
@@ -1359,7 +1705,7 @@ export default function ProfilePage() {
                               const file = e.target.files?.[0]
                               if (file) setAadharCard(file)
                             }}
-                            className="w-full sm:flex-1 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            className="w-full sm:flex-1 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 file:mr-2 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 dark:file:bg-indigo-900/50 dark:file:text-indigo-300"
                           />
                           <button
                             onClick={() => aadharCard && handleFileUpload(aadharCard, 'AADHAR_CARD')}
@@ -1369,29 +1715,55 @@ export default function ProfilePage() {
                             {uploading ? 'Uploading...' : 'Upload'}
                           </button>
                         </div>
+                        {fieldErrors.aadharCard && (
+                          <p className="mt-1 text-sm text-red-600 error-message">{fieldErrors.aadharCard}</p>
+                        )}
                       </div>
 
                       {/* Driver's License Upload */}
                       <div className="space-y-3">
                         <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400">Driver&apos;s License</label>
                         {existingDocs.driversLicense ? (
-                          <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
-                            <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center justify-between p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl mb-2">
+                            <div className="flex items-center space-x-3">
+                              <svg className="w-8 h-8 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                              </svg>
                               <button
                                 onClick={() => handleViewDocument(existingDocs.driversLicense!.id)}
-                                className="text-sm text-green-700 dark:text-green-300 hover:text-green-900 dark:hover:text-green-100 underline cursor-pointer text-left flex-1"
+                                className="text-sm font-medium text-gray-900 dark:text-gray-100 hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer text-left"
                               >
-                                ✓ Uploaded: {existingDocs.driversLicense.fileName}
-                              </button>
-                              <button
-                                onClick={() => handleRemoveDocument(existingDocs.driversLicense!.id, 'DRIVERS_LICENSE')}
-                                disabled={uploading}
-                                className="px-3 py-1 text-xs font-medium text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                title="Remove this document"
-                              >
-                                Remove
+                                {existingDocs.driversLicense.fileName}
                               </button>
                             </div>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveDocument(existingDocs.driversLicense!.id, 'DRIVERS_LICENSE')}
+                              disabled={uploading}
+                              className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        ) : null}
+                        {driversLicense ? (
+                          <div className="flex items-center justify-between p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl mb-2">
+                            <div className="flex items-center space-x-3">
+                              <svg className="w-8 h-8 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                              </svg>
+                              <div>
+                                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{driversLicense.name}</p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">{(driversLicense.size / 1024).toFixed(2)} KB</p>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setDriversLicense(null)}
+                              className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 font-medium text-sm"
+                            >
+                              Remove
+                            </button>
                           </div>
                         ) : null}
                         <div className="flex flex-col sm:flex-row gap-2">
@@ -1402,7 +1774,7 @@ export default function ProfilePage() {
                               const file = e.target.files?.[0]
                               if (file) setDriversLicense(file)
                             }}
-                            className="w-full sm:flex-1 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            className="w-full sm:flex-1 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 file:mr-2 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 dark:file:bg-indigo-900/50 dark:file:text-indigo-300"
                           />
                           <button
                             onClick={() => driversLicense && handleFileUpload(driversLicense, 'DRIVERS_LICENSE')}
@@ -1416,7 +1788,7 @@ export default function ProfilePage() {
                     </div>
                   </div>
                 </div>
-              )}
+                  )}
 
               {/* Education Tab */}
               {activeTab === 'education' && formVisibility.education && (
@@ -1428,64 +1800,255 @@ export default function ProfilePage() {
                     <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-200 mb-4">School (10th Grade)</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div>
-                        <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">School</label>
+                        <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">School <span className="text-red-500">*</span></label>
                         <input
                           type="text"
                           value={profile.school}
-                          onChange={(e) => setProfile({ ...profile, school: e.target.value })}
+                          onChange={(e) => {
+                            setProfile({ ...profile, school: e.target.value })
+                            if (fieldErrors.school) {
+                              const newErrors = { ...fieldErrors }
+                              delete newErrors.school
+                              setFieldErrors(newErrors)
+                            }
+                          }}
                           placeholder="Enter your school name"
-                          className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          className={`w-full px-4 py-3 border rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                            fieldErrors.school ? 'border-red-500 dark:border-red-500' : 'border-slate-300 dark:border-slate-600'
+                          }`}
                         />
+                        {fieldErrors.school && (
+                          <p className="mt-1 text-sm text-red-600 error-message">{fieldErrors.school}</p>
+                        )}
                       </div>
                       <div>
-                        <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">School Country</label>
+                        <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">School Country <span className="text-red-500">*</span></label>
                         <input
                           type="text"
                           value={profile.schoolCountry}
-                          onChange={(e) => setProfile({ ...profile, schoolCountry: e.target.value })}
+                          onChange={(e) => {
+                            setProfile({ ...profile, schoolCountry: e.target.value })
+                            if (fieldErrors.schoolCountry) {
+                              const newErrors = { ...fieldErrors }
+                              delete newErrors.schoolCountry
+                              setFieldErrors(newErrors)
+                            }
+                          }}
                           placeholder="Enter your school country"
-                          className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          className={`w-full px-4 py-3 border rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                            fieldErrors.schoolCountry ? 'border-red-500 dark:border-red-500' : 'border-slate-300 dark:border-slate-600'
+                          }`}
                         />
+                        {fieldErrors.schoolCountry && (
+                          <p className="mt-1 text-sm text-red-600 error-message">{fieldErrors.schoolCountry}</p>
+                        )}
                       </div>
                       <div>
-                        <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">School Address</label>
+                        <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">School Address <span className="text-red-500">*</span></label>
                         <input
                           type="text"
                           value={profile.schoolAddress}
-                          onChange={(e) => setProfile({ ...profile, schoolAddress: e.target.value })}
+                          onChange={(e) => {
+                            setProfile({ ...profile, schoolAddress: e.target.value })
+                            if (fieldErrors.schoolAddress) {
+                              const newErrors = { ...fieldErrors }
+                              delete newErrors.schoolAddress
+                              setFieldErrors(newErrors)
+                            }
+                          }}
                           placeholder="Enter your school address"
-                          className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          className={`w-full px-4 py-3 border rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                            fieldErrors.schoolAddress ? 'border-red-500 dark:border-red-500' : 'border-slate-300 dark:border-slate-600'
+                          }`}
                         />
+                        {fieldErrors.schoolAddress && (
+                          <p className="mt-1 text-sm text-red-600 error-message">{fieldErrors.schoolAddress}</p>
+                        )}
                       </div>
                       <div>
-                        <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">School Start Year</label>
+                        <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">School Start Year <span className="text-red-500">*</span></label>
                         <input
                           type="number"
                           value={profile.schoolStartYear}
-                          onChange={(e) => setProfile({ ...profile, schoolStartYear: e.target.value })}
+                          onChange={(e) => {
+                            setProfile({ ...profile, schoolStartYear: e.target.value })
+                            if (fieldErrors.schoolStartYear) {
+                              const newErrors = { ...fieldErrors }
+                              delete newErrors.schoolStartYear
+                              setFieldErrors(newErrors)
+                            }
+                          }}
                           placeholder="Enter your school start year"
-                          className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          className={`w-full px-4 py-3 border rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                            fieldErrors.schoolStartYear ? 'border-red-500 dark:border-red-500' : 'border-slate-300 dark:border-slate-600'
+                          }`}
                         />
+                        {fieldErrors.schoolStartYear && (
+                          <p className="mt-1 text-sm text-red-600 error-message">{fieldErrors.schoolStartYear}</p>
+                        )}
                       </div>
                       <div>
-                        <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">School End Year</label>
+                        <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">School End Year <span className="text-red-500">*</span></label>
                         <input
                           type="number"
                           value={profile.schoolEndYear}
-                          onChange={(e) => setProfile({ ...profile, schoolEndYear: e.target.value })}
+                          onChange={(e) => {
+                            setProfile({ ...profile, schoolEndYear: e.target.value })
+                            if (fieldErrors.schoolEndYear) {
+                              const newErrors = { ...fieldErrors }
+                              delete newErrors.schoolEndYear
+                              setFieldErrors(newErrors)
+                            }
+                          }}
                           placeholder="Enter your school end year"
-                          className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          className={`w-full px-4 py-3 border rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                            fieldErrors.schoolEndYear ? 'border-red-500 dark:border-red-500' : 'border-slate-300 dark:border-slate-600'
+                          }`}
                         />
+                        {fieldErrors.schoolEndYear && (
+                          <p className="mt-1 text-sm text-red-600 error-message">{fieldErrors.schoolEndYear}</p>
+                        )}
                       </div>
                       <div>
-                        <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">School Grade (in %)</label>
+                        <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">School Board <span className="text-red-500">*</span></label>
+                        <select
+                          value={profile.schoolBoard}
+                          onChange={(e) => {
+                            setProfile({ ...profile, schoolBoard: e.target.value, schoolGrade: '' })
+                            if (fieldErrors.schoolBoard) {
+                              const newErrors = { ...fieldErrors }
+                              delete newErrors.schoolBoard
+                              setFieldErrors(newErrors)
+                            }
+                          }}
+                          className={`w-full px-4 py-3 border rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                            fieldErrors.schoolBoard ? 'border-red-500 dark:border-red-500' : 'border-slate-300 dark:border-slate-600'
+                          }`}
+                        >
+                          <option value="">Select School Board</option>
+                          <option value="SSC">SSC</option>
+                          <option value="CBSE">CBSE</option>
+                          <option value="ICSE">ICSE</option>
+                          <option value="IB">IB</option>
+                          <option value="Other">Other (Please specify)</option>
+                        </select>
+                        {fieldErrors.schoolBoard && (
+                          <p className="mt-1 text-sm text-red-600 error-message">{fieldErrors.schoolBoard}</p>
+                        )}
+                      </div>
+                      {profile.schoolBoard === 'Other' && (
+                        <div>
+                          <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">Custom School Board</label>
+                          <input
+                            type="text"
+                            value={profile.schoolBoardOther}
+                            onChange={(e) => setProfile({ ...profile, schoolBoardOther: e.target.value })}
+                            placeholder="Enter your school board"
+                            className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          />
+                        </div>
+                      )}
+                      <div>
+                        <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">
+                          {profile.schoolBoard === 'IB' ? 'School Grade (Points out of 45)' : 'School Grade (in %)'} <span className="text-red-500">*</span>
+                        </label>
                         <input
                           type="text"
                           value={profile.schoolGrade}
-                          onChange={(e) => setProfile({ ...profile, schoolGrade: e.target.value })}
-                          placeholder="Enter your school grade (in %)"
-                          className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          onChange={(e) => {
+                            const value = e.target.value
+                            if (profile.schoolBoard === 'IB') {
+                              // For IB, validate that it's a number and max 45
+                              if (value === '' || (/^\d*\.?\d*$/.test(value) && parseFloat(value) <= 45)) {
+                                setProfile({ ...profile, schoolGrade: value })
+                                if (fieldErrors.schoolGrade) {
+                                  const newErrors = { ...fieldErrors }
+                                  delete newErrors.schoolGrade
+                                  setFieldErrors(newErrors)
+                                }
+                              }
+                            } else {
+                              setProfile({ ...profile, schoolGrade: value })
+                              if (fieldErrors.schoolGrade) {
+                                const newErrors = { ...fieldErrors }
+                                delete newErrors.schoolGrade
+                                setFieldErrors(newErrors)
+                              }
+                            }
+                          }}
+                          placeholder={profile.schoolBoard === 'IB' ? 'Enter points (max 45)' : 'Enter your school grade (in %)'}
+                          className={`w-full px-4 py-3 border rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 ${fieldErrors.schoolGrade ? 'border-red-500 dark:border-red-500' : 'border-slate-300 dark:border-slate-600'}`}
                         />
+                        {fieldErrors.schoolGrade && (
+                          <p className="mt-1 text-sm text-red-600 error-message">{fieldErrors.schoolGrade}</p>
+                        )}
+                      </div>
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">10th Grade Marksheet <span className="text-red-500">*</span></label>
+                        {existingDocs.marksheet10th ? (
+                          <div className="flex items-center justify-between p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl mb-2">
+                            <div className="flex items-center space-x-3">
+                              <svg className="w-8 h-8 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                              </svg>
+                              <button
+                                onClick={() => handleViewDocument(existingDocs.marksheet10th!.id)}
+                                className="text-sm font-medium text-gray-900 dark:text-gray-100 hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer text-left"
+                              >
+                                {existingDocs.marksheet10th.fileName}
+                              </button>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveDocument(existingDocs.marksheet10th!.id, 'MARKSHEET_10TH')}
+                              disabled={uploading}
+                              className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        ) : null}
+                        {marksheet10th ? (
+                          <div className="flex items-center justify-between p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl mb-2">
+                            <div className="flex items-center space-x-3">
+                              <svg className="w-8 h-8 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                              </svg>
+                              <div>
+                                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{marksheet10th.name}</p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">{(marksheet10th.size / 1024).toFixed(2)} KB</p>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setMarksheet10th(null)}
+                              className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 font-medium text-sm"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        ) : null}
+                        <div className="flex flex-col sm:flex-row gap-2">
+                          <input
+                            type="file"
+                            accept="application/pdf"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0]
+                              if (file) setMarksheet10th(file)
+                            }}
+                            className="w-full sm:flex-1 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 file:mr-2 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 dark:file:bg-indigo-900/50 dark:file:text-indigo-300"
+                          />
+                          <button
+                            onClick={() => marksheet10th && handleFileUpload(marksheet10th, 'MARKSHEET_10TH')}
+                            disabled={!marksheet10th || uploading}
+                            className="w-full sm:w-auto px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                          >
+                            {uploading ? 'Uploading...' : 'Upload'}
+                          </button>
+                        </div>
+                        {fieldErrors.marksheet10th && (
+                          <p className="mt-1 text-sm text-red-600 error-message">{fieldErrors.marksheet10th}</p>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1545,14 +2108,117 @@ export default function ProfilePage() {
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">High School Grade (in %)</label>
+                        <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">School Board</label>
+                        <select
+                          value={profile.highSchoolBoard}
+                          onChange={(e) => setProfile({ ...profile, highSchoolBoard: e.target.value, highSchoolGrade: '' })}
+                          className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        >
+                          <option value="">Select School Board</option>
+                          <option value="SSC">SSC</option>
+                          <option value="CBSE">CBSE</option>
+                          <option value="ICSE">ICSE</option>
+                          <option value="IB">IB</option>
+                          <option value="Other">Other (Please specify)</option>
+                        </select>
+                      </div>
+                      {profile.highSchoolBoard === 'Other' && (
+                        <div>
+                          <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">Custom School Board</label>
+                          <input
+                            type="text"
+                            value={profile.highSchoolBoardOther}
+                            onChange={(e) => setProfile({ ...profile, highSchoolBoardOther: e.target.value })}
+                            placeholder="Enter your school board"
+                            className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          />
+                        </div>
+                      )}
+                      <div>
+                        <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">
+                          {profile.highSchoolBoard === 'IB' ? 'High School Grade (Points out of 45)' : 'High School Grade (in %)'}
+                        </label>
                         <input
                           type="text"
                           value={profile.highSchoolGrade}
-                          onChange={(e) => setProfile({ ...profile, highSchoolGrade: e.target.value })}
-                          placeholder="Enter your high school grade (in %)"
+                          onChange={(e) => {
+                            const value = e.target.value
+                            if (profile.highSchoolBoard === 'IB') {
+                              // For IB, validate that it's a number and max 45
+                              if (value === '' || (/^\d*\.?\d*$/.test(value) && parseFloat(value) <= 45)) {
+                                setProfile({ ...profile, highSchoolGrade: value })
+                              }
+                            } else {
+                              setProfile({ ...profile, highSchoolGrade: value })
+                            }
+                          }}
+                          placeholder={profile.highSchoolBoard === 'IB' ? 'Enter points (max 45)' : 'Enter your high school grade (in %)'}
                           className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         />
+                      </div>
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">12th Grade Marksheet</label>
+                        {existingDocs.marksheet12th ? (
+                          <div className="flex items-center justify-between p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl mb-2">
+                            <div className="flex items-center space-x-3">
+                              <svg className="w-8 h-8 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                              </svg>
+                              <button
+                                onClick={() => handleViewDocument(existingDocs.marksheet12th!.id)}
+                                className="text-sm font-medium text-gray-900 dark:text-gray-100 hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer text-left"
+                              >
+                                {existingDocs.marksheet12th.fileName}
+                              </button>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveDocument(existingDocs.marksheet12th!.id, 'MARKSHEET_12TH')}
+                              disabled={uploading}
+                              className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        ) : null}
+                        {marksheet12th ? (
+                          <div className="flex items-center justify-between p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl mb-2">
+                            <div className="flex items-center space-x-3">
+                              <svg className="w-8 h-8 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                              </svg>
+                              <div>
+                                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{marksheet12th.name}</p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">{(marksheet12th.size / 1024).toFixed(2)} KB</p>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setMarksheet12th(null)}
+                              className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 font-medium text-sm"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        ) : null}
+                        <div className="flex flex-col sm:flex-row gap-2">
+                          <input
+                            type="file"
+                            accept="application/pdf"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0]
+                              if (file) setMarksheet12th(file)
+                            }}
+                            className="w-full sm:flex-1 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 file:mr-2 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 dark:file:bg-indigo-900/50 dark:file:text-indigo-300"
+                          />
+                          <button
+                            onClick={() => marksheet12th && handleFileUpload(marksheet12th, 'MARKSHEET_12TH')}
+                            disabled={!marksheet12th || uploading}
+                            className="w-full sm:w-auto px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                          >
+                            {uploading ? 'Uploading...' : 'Upload'}
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1714,95 +2380,6 @@ export default function ProfilePage() {
                     </div>
                   </div>
 
-                  {/* Document Uploads */}
-                  <div className="bg-slate-50 dark:bg-slate-700/50 p-6 rounded-lg">
-                    <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-200 mb-4">Upload Marksheets</h3>
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                      <div className="space-y-3">
-                        <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400">10th Grade Marksheet</label>
-                        {existingDocs.marksheet10th ? (
-                          <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
-                            <div className="flex items-center justify-between gap-2">
-                              <button
-                                onClick={() => handleViewDocument(existingDocs.marksheet10th!.id)}
-                                className="text-sm text-green-700 dark:text-green-300 hover:text-green-900 dark:hover:text-green-100 underline cursor-pointer text-left flex-1"
-                              >
-                                ✓ Uploaded: {existingDocs.marksheet10th.fileName}
-                              </button>
-                              <button
-                                onClick={() => handleRemoveDocument(existingDocs.marksheet10th!.id, 'MARKSHEET_10TH')}
-                                disabled={uploading}
-                                className="px-3 py-1 text-xs font-medium text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                title="Remove this document"
-                              >
-                                Remove
-                              </button>
-                            </div>
-                          </div>
-                        ) : null}
-                        <div className="flex flex-col sm:flex-row gap-2">
-                          <input
-                            type="file"
-                            accept="application/pdf"
-                            onChange={(e) => {
-                              const file = e.target.files?.[0]
-                              if (file) setMarksheet10th(file)
-                            }}
-                            className="w-full sm:flex-1 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 dark:file:bg-indigo-900/50 dark:file:text-indigo-300"
-                          />
-                          <button
-                            onClick={() => marksheet10th && handleFileUpload(marksheet10th, 'MARKSHEET_10TH')}
-                            disabled={!marksheet10th || uploading}
-                            className="w-full sm:w-auto px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
-                          >
-                            {uploading ? 'Uploading...' : 'Upload'}
-                          </button>
-                        </div>
-                      </div>
-                      <div className="space-y-3">
-                        <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400">12th Grade Marksheet</label>
-                        {existingDocs.marksheet12th ? (
-                          <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
-                            <div className="flex items-center justify-between gap-2">
-                              <button
-                                onClick={() => handleViewDocument(existingDocs.marksheet12th!.id)}
-                                className="text-sm text-green-700 dark:text-green-300 hover:text-green-900 dark:hover:text-green-100 underline cursor-pointer text-left flex-1"
-                              >
-                                ✓ Uploaded: {existingDocs.marksheet12th.fileName}
-                              </button>
-                              <button
-                                onClick={() => handleRemoveDocument(existingDocs.marksheet12th!.id, 'MARKSHEET_12TH')}
-                                disabled={uploading}
-                                className="px-3 py-1 text-xs font-medium text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                title="Remove this document"
-                              >
-                                Remove
-                              </button>
-                            </div>
-                          </div>
-                        ) : null}
-                        <div className="flex flex-col sm:flex-row gap-2">
-                          <input
-                            type="file"
-                            accept="application/pdf"
-                            onChange={(e) => {
-                              const file = e.target.files?.[0]
-                              if (file) setMarksheet12th(file)
-                            }}
-                            className="w-full sm:flex-1 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                          />
-                          <button
-                            onClick={() => marksheet12th && handleFileUpload(marksheet12th, 'MARKSHEET_12TH')}
-                            disabled={!marksheet12th || uploading}
-                            className="w-full sm:w-auto px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
-                          >
-                            {uploading ? 'Uploading...' : 'Upload'}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
                   {/* Test Score Uploads */}
                   {(profile.greTaken || profile.toeflTaken || profile.languageTest) && (
                     <div className="bg-slate-50 dark:bg-slate-700/50 p-6 rounded-lg">
@@ -1812,23 +2389,26 @@ export default function ProfilePage() {
                           <div className="space-y-3">
                             <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400">GRE Scorecard</label>
                             {existingDocs.greScorecard ? (
-                              <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
-                                <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center justify-between p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl mb-2">
+                                <div className="flex items-center space-x-3">
+                                  <svg className="w-8 h-8 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                  </svg>
                                   <button
                                     onClick={() => handleViewDocument(existingDocs.greScorecard!.id)}
-                                    className="text-sm text-green-700 dark:text-green-300 hover:text-green-900 dark:hover:text-green-100 underline cursor-pointer text-left flex-1"
+                                    className="text-sm font-medium text-gray-900 dark:text-gray-100 hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer text-left"
                                   >
-                                    ✓ Uploaded: {existingDocs.greScorecard.fileName}
-                                  </button>
-                                  <button
-                                    onClick={() => handleRemoveDocument(existingDocs.greScorecard!.id, 'GRE_SCORECARD')}
-                                    disabled={uploading}
-                                    className="px-3 py-1 text-xs font-medium text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                    title="Remove this document"
-                                  >
-                                    Remove
+                                    {existingDocs.greScorecard.fileName}
                                   </button>
                                 </div>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveDocument(existingDocs.greScorecard!.id, 'GRE_SCORECARD')}
+                                  disabled={uploading}
+                                  className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  Remove
+                                </button>
                               </div>
                             ) : null}
                             <div className="flex flex-col sm:flex-row gap-2">
@@ -1839,7 +2419,7 @@ export default function ProfilePage() {
                                   const file = e.target.files?.[0]
                                   if (file) handleFileUpload(file, 'GRE_SCORECARD')
                                 }}
-                                className="w-full sm:flex-1 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 dark:file:bg-indigo-900/50 dark:file:text-indigo-300"
+                                className="w-full sm:flex-1 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 file:mr-2 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 dark:file:bg-indigo-900/50 dark:file:text-indigo-300"
                               />
                             </div>
                           </div>
@@ -1848,23 +2428,26 @@ export default function ProfilePage() {
                           <div className="space-y-3">
                             <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400">TOEFL Scorecard</label>
                             {existingDocs.toeflScorecard ? (
-                              <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
-                                <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center justify-between p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl mb-2">
+                                <div className="flex items-center space-x-3">
+                                  <svg className="w-8 h-8 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                  </svg>
                                   <button
                                     onClick={() => handleViewDocument(existingDocs.toeflScorecard!.id)}
-                                    className="text-sm text-green-700 dark:text-green-300 hover:text-green-900 dark:hover:text-green-100 underline cursor-pointer text-left flex-1"
+                                    className="text-sm font-medium text-gray-900 dark:text-gray-100 hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer text-left"
                                   >
-                                    ✓ Uploaded: {existingDocs.toeflScorecard.fileName}
-                                  </button>
-                                  <button
-                                    onClick={() => handleRemoveDocument(existingDocs.toeflScorecard!.id, 'TOEFL_SCORECARD')}
-                                    disabled={uploading}
-                                    className="px-3 py-1 text-xs font-medium text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                    title="Remove this document"
-                                  >
-                                    Remove
+                                    {existingDocs.toeflScorecard.fileName}
                                   </button>
                                 </div>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveDocument(existingDocs.toeflScorecard!.id, 'TOEFL_SCORECARD')}
+                                  disabled={uploading}
+                                  className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  Remove
+                                </button>
                               </div>
                             ) : null}
                             <div className="flex flex-col sm:flex-row gap-2">
@@ -1875,7 +2458,7 @@ export default function ProfilePage() {
                                   const file = e.target.files?.[0]
                                   if (file) handleFileUpload(file, 'TOEFL_SCORECARD')
                                 }}
-                                className="w-full sm:flex-1 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 dark:file:bg-indigo-900/50 dark:file:text-indigo-300"
+                                className="w-full sm:flex-1 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 file:mr-2 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 dark:file:bg-indigo-900/50 dark:file:text-indigo-300"
                               />
                             </div>
                           </div>
@@ -1884,23 +2467,26 @@ export default function ProfilePage() {
                           <div className="space-y-3">
                             <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400">{profile.languageTest} Scorecard</label>
                             {existingDocs.languageTestScorecard ? (
-                              <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
-                                <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center justify-between p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl mb-2">
+                                <div className="flex items-center space-x-3">
+                                  <svg className="w-8 h-8 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                  </svg>
                                   <button
                                     onClick={() => handleViewDocument(existingDocs.languageTestScorecard!.id)}
-                                    className="text-sm text-green-700 dark:text-green-300 hover:text-green-900 dark:hover:text-green-100 underline cursor-pointer text-left flex-1"
+                                    className="text-sm font-medium text-gray-900 dark:text-gray-100 hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer text-left"
                                   >
-                                    ✓ Uploaded: {existingDocs.languageTestScorecard.fileName}
-                                  </button>
-                                  <button
-                                    onClick={() => handleRemoveDocument(existingDocs.languageTestScorecard!.id, 'LANGUAGE_TEST_SCORECARD')}
-                                    disabled={uploading}
-                                    className="px-3 py-1 text-xs font-medium text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                    title="Remove this document"
-                                  >
-                                    Remove
+                                    {existingDocs.languageTestScorecard.fileName}
                                   </button>
                                 </div>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveDocument(existingDocs.languageTestScorecard!.id, 'LANGUAGE_TEST_SCORECARD')}
+                                  disabled={uploading}
+                                  className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  Remove
+                                </button>
                               </div>
                             ) : null}
                             <div className="flex flex-col sm:flex-row gap-2">
@@ -1911,7 +2497,7 @@ export default function ProfilePage() {
                                   const file = e.target.files?.[0]
                                   if (file) handleFileUpload(file, 'LANGUAGE_TEST_SCORECARD')
                                 }}
-                                className="w-full sm:flex-1 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 dark:file:bg-indigo-900/50 dark:file:text-indigo-300"
+                                className="w-full sm:flex-1 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 file:mr-2 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 dark:file:bg-indigo-900/50 dark:file:text-indigo-300"
                               />
                             </div>
                           </div>
@@ -2940,27 +3526,30 @@ export default function ProfilePage() {
                     {/* Passport Document */}
                     <div className="mb-6">
                       <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">Passport (PDF only)</label>
-                      {existingDocs.passport ? (
-                        <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
-                          <div className="flex items-center justify-between gap-2">
+                      {existingDocs.passport && !passport ? (
+                        <div className="flex items-center justify-between p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl mb-2">
+                          <div className="flex items-center space-x-3">
+                            <svg className="w-8 h-8 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
                             <button
                               onClick={() => handleViewDocument(existingDocs.passport!.id)}
-                              className="text-sm text-green-700 dark:text-green-300 hover:text-green-900 dark:hover:text-green-100 underline cursor-pointer text-left flex-1"
+                              className="text-sm font-medium text-gray-900 dark:text-gray-100 hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer text-left"
                             >
-                              ✓ Uploaded: {existingDocs.passport.fileName}
-                            </button>
-                            <button
-                              onClick={() => handleRemoveDocument(existingDocs.passport!.id, 'PASSPORT')}
-                              className="px-3 py-1 text-xs font-medium text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                              disabled={uploading}
-                              title="Remove this document"
-                            >
-                              Remove
+                              {existingDocs.passport.fileName}
                             </button>
                           </div>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveDocument(existingDocs.passport!.id, 'PASSPORT')}
+                            disabled={uploading}
+                            className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            Remove
+                          </button>
                         </div>
                       ) : null}
-                      <div className="flex flex-col sm:flex-row gap-2 mt-2">
+                      <div className="flex flex-col sm:flex-row gap-2">
                         <input
                           type="file"
                           accept=".pdf"
@@ -2968,7 +3557,7 @@ export default function ProfilePage() {
                             const file = e.target.files?.[0]
                             if (file) setPassport(file)
                           }}
-                          className="w-full sm:flex-1 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 dark:file:bg-indigo-900/50 dark:file:text-indigo-300"
+                          className="w-full sm:flex-1 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 file:mr-2 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 dark:file:bg-indigo-900/50 dark:file:text-indigo-300"
                         />
                         <button
                           onClick={() => passport && handleFileUpload(passport, 'PASSPORT')}
@@ -3022,7 +3611,7 @@ export default function ProfilePage() {
               )}
 
               {/* Save Button */}
-              <div className="mt-8 flex justify-end gap-4 pt-6 border-t border-gray-200">
+              <div className="mt-8 flex justify-end gap-4 pt-6 border-t border-gray-200 dark:border-slate-600">
                 <button
                   onClick={() => loadProfile()}
                   disabled={saving}

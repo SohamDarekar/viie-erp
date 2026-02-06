@@ -62,12 +62,16 @@ const onboardingSchema = z.object({
   schoolAddress: z.string().optional(),
   schoolStartYear: z.number().int().optional(), // Changed from Date string
   schoolEndYear: z.number().int().optional(), // Changed from Date string
+  schoolBoard: z.string().optional(),
+  schoolBoardOther: z.string().optional(),
   schoolGrade: z.string().optional(),
   highSchool: z.string().optional(),
   highSchoolCountry: z.string().optional(),
   highSchoolAddress: z.string().optional(),
   highSchoolStartYear: z.number().int().optional(), // Changed from Date string
   highSchoolEndYear: z.number().int().optional(), // Changed from Date string
+  highSchoolBoard: z.string().optional(),
+  highSchoolBoardOther: z.string().optional(),
   highSchoolGrade: z.string().optional(),
   bachelorsIn: z.string().optional(),
   bachelorsFromInstitute: z.string().optional(),
@@ -79,8 +83,10 @@ const onboardingSchema = z.object({
   bachelorsCompleted: z.boolean().optional(),
   greTaken: z.boolean().optional(),
   greScore: z.string().optional(),
+  greTestDate: z.string().optional(), // Added
   toeflTaken: z.boolean().optional(),
   toeflScore: z.string().optional(),
+  toeflTestDate: z.string().optional(), // Added
   languageTest: z.string().optional(),
   languageTestScore: z.string().optional(),
   languageTestDate: z.string().optional(), // Added
@@ -112,7 +118,7 @@ export async function POST(req: NextRequest) {
     // Check content type to determine how to parse the request
     const contentType = req.headers.get('content-type') || ''
     let body: any
-    let files: { marksheet10th?: File; marksheet12th?: File; ieltsScorecard?: File; passport?: File; languageTestScorecard?: File } = {}
+    let files: { marksheet10th?: File; marksheet12th?: File; ieltsScorecard?: File; passport?: File; languageTestScorecard?: File; greScorecard?: File; toeflScorecard?: File; passportPhoto?: File; aadharCard?: File } = {}
 
     if (contentType.includes('multipart/form-data')) {
       // Handle FormData for file uploads
@@ -123,7 +129,7 @@ export async function POST(req: NextRequest) {
       formData.forEach((value, key) => {
         if (value instanceof File) {
           // Store files separately
-          if (key === 'marksheet10th' || key === 'marksheet12th' || key === 'ieltsScorecard' || key === 'passport' || key === 'languageTestScorecard') {
+          if (key === 'marksheet10th' || key === 'marksheet12th' || key === 'ieltsScorecard' || key === 'passport' || key === 'languageTestScorecard' || key === 'greScorecard' || key === 'toeflScorecard' || key === 'passportPhoto' || key === 'aadharCard') {
             files[key as keyof typeof files] = value
           }
         } else if (typeof value === 'string') {
@@ -138,6 +144,18 @@ export async function POST(req: NextRequest) {
           const parsed = parseInt(body[field])
           if (!isNaN(parsed)) {
             body[field] = parsed
+          }
+        }
+      })
+      
+      // Convert boolean fields for FormData
+      const booleanFields = ['bachelorsCompleted', 'greTaken', 'toeflTaken', 'hasWorkExperience']
+      booleanFields.forEach(field => {
+        if (body[field] !== undefined && body[field] !== null && body[field] !== '') {
+          if (body[field] === 'true' || body[field] === true) {
+            body[field] = true
+          } else if (body[field] === 'false' || body[field] === false) {
+            body[field] = false
           }
         }
       })
@@ -164,6 +182,18 @@ export async function POST(req: NextRequest) {
         const parsed = parseInt(body[field])
         if (!isNaN(parsed)) {
           body[field] = parsed
+        }
+      }
+    })
+    
+    // Convert boolean fields if they are strings
+    const booleanFields = ['bachelorsCompleted', 'greTaken', 'toeflTaken', 'hasWorkExperience']
+    booleanFields.forEach(field => {
+      if (body[field] !== undefined && body[field] !== null && body[field] !== '') {
+        if (body[field] === 'true' || body[field] === true) {
+          body[field] = true
+        } else if (body[field] === 'false' || body[field] === false) {
+          body[field] = false
         }
       }
     })
@@ -253,12 +283,16 @@ export async function POST(req: NextRequest) {
     if (data.schoolAddress) studentData.schoolAddress = data.schoolAddress
     if (data.schoolStartYear) studentData.schoolStartYear = data.schoolStartYear // Now an Int
     if (data.schoolEndYear) studentData.schoolEndYear = data.schoolEndYear // Now an Int
+    if (data.schoolBoard) studentData.schoolBoard = data.schoolBoard
+    if (data.schoolBoardOther) studentData.schoolBoardOther = data.schoolBoardOther
     if (data.schoolGrade) studentData.schoolGrade = data.schoolGrade
     if (data.highSchool) studentData.highSchool = data.highSchool
     if (data.highSchoolCountry) studentData.highSchoolCountry = data.highSchoolCountry
     if (data.highSchoolAddress) studentData.highSchoolAddress = data.highSchoolAddress
     if (data.highSchoolStartYear) studentData.highSchoolStartYear = data.highSchoolStartYear // Now an Int
     if (data.highSchoolEndYear) studentData.highSchoolEndYear = data.highSchoolEndYear // Now an Int
+    if (data.highSchoolBoard) studentData.highSchoolBoard = data.highSchoolBoard
+    if (data.highSchoolBoardOther) studentData.highSchoolBoardOther = data.highSchoolBoardOther
     if (data.highSchoolGrade) studentData.highSchoolGrade = data.highSchoolGrade
     if (data.bachelorsIn) studentData.bachelorsIn = data.bachelorsIn
     if (data.bachelorsFromInstitute) studentData.bachelorsFromInstitute = data.bachelorsFromInstitute
@@ -270,11 +304,38 @@ export async function POST(req: NextRequest) {
     if (data.bachelorsCompleted !== undefined) studentData.bachelorsCompleted = data.bachelorsCompleted
     if (data.greTaken !== undefined) studentData.greTaken = data.greTaken
     if (data.greScore) studentData.greScore = data.greScore
+    if (data.greTestDate) studentData.greTestDate = new Date(data.greTestDate) // Added
     if (data.toeflTaken !== undefined) studentData.toeflTaken = data.toeflTaken
     if (data.toeflScore) studentData.toeflScore = data.toeflScore
+    if (data.toeflTestDate) studentData.toeflTestDate = new Date(data.toeflTestDate) // Added
     if (data.languageTest) studentData.languageTest = data.languageTest
     if (data.languageTestScore) studentData.languageTestScore = data.languageTestScore
     if (data.languageTestDate) studentData.languageTestDate = new Date(data.languageTestDate) // Added
+    
+    // Handle passport photo - convert to base64 and store directly in database
+    if (files.passportPhoto) {
+      const allowedTypes = ['image/png', 'image/jpg', 'image/jpeg']
+      if (!allowedTypes.includes(files.passportPhoto.type)) {
+        return NextResponse.json(
+          { error: 'Passport photo must be PNG, JPG, or JPEG format' },
+          { status: 400 }
+        )
+      }
+      
+      // Validate file size (max 5MB)
+      if (files.passportPhoto.size > 5 * 1024 * 1024) {
+        return NextResponse.json(
+          { error: 'Passport photo size must be less than 5MB' },
+          { status: 400 }
+        )
+      }
+      
+      // Convert to base64
+      const arrayBuffer = await files.passportPhoto.arrayBuffer()
+      const buffer = Buffer.from(arrayBuffer)
+      const base64 = `data:${files.passportPhoto.type};base64,${buffer.toString('base64')}`
+      studentData.passportPhoto = base64
+    }
     
     // Get form visibility for the batch
     const batch = await prisma.batch.findUnique({
@@ -429,6 +490,66 @@ export async function POST(req: NextRequest) {
             storedPath: fileData.storedPath,
             fileSize: fileData.fileSize,
             mimeType: files.languageTestScorecard!.type,
+          },
+        })
+      })
+      fileUploadPromises.push(filePromise)
+    }
+
+    if (files.greScorecard) {
+      const filePromise = saveFile(files.greScorecard, {
+        allowedTypes: ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'],
+        maxSize: 10 * 1024 * 1024, // 10MB
+        studentId: student.id,
+      }).then(async (fileData) => {
+        await prisma.document.create({
+          data: {
+            studentId: student.id,
+            type: 'GRE_SCORECARD',
+            fileName: fileData.fileName,
+            storedPath: fileData.storedPath,
+            fileSize: fileData.fileSize,
+            mimeType: files.greScorecard!.type,
+          },
+        })
+      })
+      fileUploadPromises.push(filePromise)
+    }
+
+    if (files.toeflScorecard) {
+      const filePromise = saveFile(files.toeflScorecard, {
+        allowedTypes: ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'],
+        maxSize: 10 * 1024 * 1024, // 10MB
+        studentId: student.id,
+      }).then(async (fileData) => {
+        await prisma.document.create({
+          data: {
+            studentId: student.id,
+            type: 'TOEFL_SCORECARD',
+            fileName: fileData.fileName,
+            storedPath: fileData.storedPath,
+            fileSize: fileData.fileSize,
+            mimeType: files.toeflScorecard!.type,
+          },
+        })
+      })
+      fileUploadPromises.push(filePromise)
+    }
+
+    if (files.aadharCard) {
+      const filePromise = saveFile(files.aadharCard, {
+        allowedTypes: ['application/pdf'],
+        maxSize: 10 * 1024 * 1024, // 10MB
+        studentId: student.id,
+      }).then(async (fileData) => {
+        await prisma.document.create({
+          data: {
+            studentId: student.id,
+            type: 'AADHAR_CARD',
+            fileName: fileData.fileName,
+            storedPath: fileData.storedPath,
+            fileSize: fileData.fileSize,
+            mimeType: files.aadharCard!.type,
           },
         })
       })

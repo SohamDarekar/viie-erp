@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { FiCheck, FiX } from 'react-icons/fi'
 
@@ -15,6 +15,9 @@ export default function RegisterPage() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [loading, setLoading] = useState(false)
+  const [registeredEmail, setRegisteredEmail] = useState('')
+  const [resendLoading, setResendLoading] = useState(false)
+  const [resendCooldown, setResendCooldown] = useState(0)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -63,10 +66,61 @@ export default function RegisterPage() {
 
       // Show success message
       setSuccess(data.message || 'Registration successful! Please check your email to verify your account.')
+      
+      // Store the registered email for potential resend
+      setRegisteredEmail(formData.email)
+      
+      // Clear form data after successful registration
+      setFormData({
+        username: '',
+        email: '',
+        password: '',
+        confirmPassword: '',
+      })
     } catch (err) {
       setError('An error occurred')
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Cooldown timer effect
+  useEffect(() => {
+    if (resendCooldown > 0) {
+      const timer = setTimeout(() => {
+        setResendCooldown(resendCooldown - 1)
+      }, 1000)
+      return () => clearTimeout(timer)
+    }
+  }, [resendCooldown])
+
+  const handleResendVerification = async () => {
+    if (!registeredEmail || resendCooldown > 0) return
+    
+    setResendLoading(true)
+    setError('')
+
+    try {
+      const res = await fetch('/api/auth/resend-verification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: registeredEmail }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        setError(data.error || 'Failed to resend verification email')
+        return
+      }
+
+      setSuccess(data.message || 'Verification email sent! Please check your inbox.')
+      // Set 60 second cooldown after successful resend
+      setResendCooldown(60)
+    } catch (err) {
+      setError('An error occurred while resending the email')
+    } finally {
+      setResendLoading(false)
     }
   }
 
@@ -117,24 +171,75 @@ export default function RegisterPage() {
 
         {/* Register card */}
         <div className="card animate-slide-up">
-          <form className="space-y-6" onSubmit={handleSubmit}>
-            {error && (
-              <div className="alert alert-error">
-                <svg className="w-5 h-5 inline mr-2" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                </svg>
-                {error}
-              </div>
-            )}
-
-            {success && (
-              <div className="alert alert-success bg-green-50 border border-green-200 text-green-700">
-                <svg className="w-5 h-5 inline mr-2" fill="currentColor" viewBox="0 0 20 20">
+          {success ? (
+            /* Success State */
+            <div className="text-center space-y-6 py-8">
+              {error && (
+                <div className="alert alert-error text-left">
+                  <svg className="w-5 h-5 inline mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  </svg>
+                  {error}
+                </div>
+              )}
+              
+              <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-green-100 dark:bg-green-900/30">
+                <svg className="w-10 h-10 text-green-600 dark:text-green-400" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                 </svg>
-                {success}
               </div>
-            )}
+              
+              <div>
+                <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
+                  Check your email!
+                </h3>
+                <p className="text-slate-600 dark:text-slate-400 max-w-md mx-auto">
+                  We've sent a verification link to your email address. Click the link to verify your account and get started.
+                </p>
+              </div>
+
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 max-w-md mx-auto">
+                <p className="text-sm text-blue-800 dark:text-blue-300 flex items-start gap-2">
+                  <svg className="w-5 h-5 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                  </svg>
+                  <span>
+                    Can't find the email? Check your spam folder or{' '}
+                    <button 
+                      onClick={handleResendVerification}
+                      disabled={resendLoading || resendCooldown > 0}
+                      className="font-semibold underline hover:text-blue-900 dark:hover:text-blue-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {resendLoading ? 'Sending...' : resendCooldown > 0 ? `resend in ${resendCooldown}s` : 'resend verification email'}
+                    </button>
+                  </span>
+                </p>
+              </div>
+
+              <div className="pt-4">
+                <a
+                  href="/login"
+                  className="inline-flex items-center justify-center px-6 py-3 btn btn-primary"
+                >
+                  Go to Login
+                  <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                  </svg>
+                </a>
+              </div>
+            </div>
+          ) : (
+            /* Registration Form */
+            <>
+            <form className="space-y-6" onSubmit={handleSubmit}>
+              {error && (
+                <div className="alert alert-error">
+                  <svg className="w-5 h-5 inline mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  </svg>
+                  {error}
+                </div>
+              )}
 
             <div className="space-y-5">
               <div>
@@ -290,6 +395,8 @@ export default function RegisterPage() {
               </a>
             </div>
           </div>
+          </>
+          )}
         </div>
       </div>
     </div>

@@ -87,7 +87,9 @@ model Student {
   schoolAddress     String?
   schoolStartYear   Int? // Changed from DateTime to Int (year only)
   schoolEndYear     Int? // Changed from DateTime to Int (year only)
-  schoolGrade       String? // Percentage
+  schoolBoard       String? // SSC, CBSE, ICSE, IB, Other
+  schoolBoardOther  String? // Custom board if "Other" is selected
+  schoolGrade       String? // Percentage for SSC/CBSE/ICSE/Other, Points for IB (max 45)
   
   // High School (12th grade)
   highSchool          String?
@@ -95,7 +97,9 @@ model Student {
   highSchoolAddress   String?
   highSchoolStartYear Int? // Changed from DateTime to Int (year only)
   highSchoolEndYear   Int? // Changed from DateTime to Int (year only)
-  highSchoolGrade     String? // Percentage
+  highSchoolBoard     String? // SSC, CBSE, ICSE, IB, Other
+  highSchoolBoardOther String? // Custom board if "Other" is selected
+  highSchoolGrade     String? // Percentage for SSC/CBSE/ICSE/Other, Points for IB (max 45)
   
   // Bachelor's Degree
   bachelorsCompleted    Boolean?
@@ -110,8 +114,10 @@ model Student {
   // Test Scores
   greTaken   Boolean?
   greScore   String?
+  greTestDate DateTime? // Added GRE test date
   toeflTaken Boolean?
   toeflScore String?
+  toeflTestDate DateTime? // Added TOEFL test date
   languageTest String? // IELTS, PTE, Duolingo
   languageTestScore String?
   languageTestDate DateTime? // Added test date

@@ -324,7 +324,8 @@ export default function AdminDashboard() {
       countryOfBirth: student.countryOfBirth || '',
       nativeLanguage: student.nativeLanguage || '',
       passportNumber: student.passportNumber || '',
-      nameAsPerPassport: student.nameAsPerPassport || '',
+      passportGivenName: student.passportGivenName || '',
+      passportLastName: student.passportLastName || '',
       passportIssueLocation: student.passportIssueLocation || '',
       passportIssueDate: student.passportIssueDate ? new Date(student.passportIssueDate).toISOString().split('T')[0] : '',
       passportExpiryDate: student.passportExpiryDate ? new Date(student.passportExpiryDate).toISOString().split('T')[0] : '',
@@ -333,17 +334,22 @@ export default function AdminDashboard() {
       parentName: student.parentName || '',
       parentPhone: student.parentPhone || '',
       parentEmail: student.parentEmail || '',
+      parentRelation: student.parentRelation || '',
       school: student.school || '',
       schoolCountry: student.schoolCountry || '',
       schoolAddress: student.schoolAddress || '',
       schoolStartDate: student.schoolStartDate ? new Date(student.schoolStartDate).toISOString().split('T')[0] : '',
       schoolEndDate: student.schoolEndDate ? new Date(student.schoolEndDate).toISOString().split('T')[0] : '',
+      schoolBoard: student.schoolBoard || '',
+      schoolBoardOther: student.schoolBoardOther || '',
       schoolGrade: student.schoolGrade || '',
       highSchool: student.highSchool || '',
       highSchoolCountry: student.highSchoolCountry || '',
       highSchoolAddress: student.highSchoolAddress || '',
       highSchoolStartDate: student.highSchoolStartDate ? new Date(student.highSchoolStartDate).toISOString().split('T')[0] : '',
       highSchoolEndDate: student.highSchoolEndDate ? new Date(student.highSchoolEndDate).toISOString().split('T')[0] : '',
+      highSchoolBoard: student.highSchoolBoard || '',
+      highSchoolBoardOther: student.highSchoolBoardOther || '',
       highSchoolGrade: student.highSchoolGrade || '',
       bachelorsIn: student.bachelorsIn || '',
       bachelorsFromInstitute: student.bachelorsFromInstitute || '',
@@ -2759,9 +2765,17 @@ export default function AdminDashboard() {
                         <tr key={student.id} className="hover:bg-slate-50">
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center">
-                              <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-md">
-                                {student.firstName?.[0]}{student.lastName?.[0]}
-                              </div>
+                              {student.passportPhoto ? (
+                                <img 
+                                  src={student.passportPhoto.startsWith('data:image/') ? student.passportPhoto : `/api/student/passport-photo?studentId=${student.id}`}
+                                  alt={`${student.firstName} ${student.lastName}`}
+                                  className="w-10 h-10 rounded-full object-cover border-2 border-indigo-500 shadow-md"
+                                />
+                              ) : (
+                                <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-md">
+                                  {student.firstName?.[0]}{student.lastName?.[0]}
+                                </div>
+                              )}
                               <div className="ml-3">
                                 <div className="font-semibold text-slate-900">
                                   {student.firstName} {student.lastName}
@@ -2990,11 +3004,20 @@ export default function AdminDashboard() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
           <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full my-8">
             <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 rounded-t-2xl flex justify-between items-center">
-              <div>
-                <h3 className="text-2xl font-bold text-slate-800">
-                  {selectedStudentProfile.firstName} {selectedStudentProfile.lastName}
-                </h3>
-                <p className="text-slate-600 text-sm">{selectedStudentProfile.user?.email}</p>
+              <div className="flex items-center space-x-4">
+                {selectedStudentProfile.passportPhoto && (
+                  <img 
+                    src={selectedStudentProfile.passportPhoto.startsWith('data:image/') ? selectedStudentProfile.passportPhoto : `/api/student/passport-photo?studentId=${selectedStudentProfile.id}`}
+                    alt={`${selectedStudentProfile.firstName} ${selectedStudentProfile.lastName}`}
+                    className="w-16 h-16 rounded-full object-cover border-2 border-indigo-500 shadow-lg"
+                  />
+                )}
+                <div>
+                  <h3 className="text-2xl font-bold text-slate-800">
+                    {selectedStudentProfile.firstName} {selectedStudentProfile.lastName}
+                  </h3>
+                  <p className="text-slate-600 text-sm">{selectedStudentProfile.user?.email}</p>
+                </div>
               </div>
               <button
                 onClick={() => {
@@ -3058,8 +3081,38 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
+              {/* Parent/Guardian Information */}
+              {(selectedStudentProfile.parentName || selectedStudentProfile.parentPhone || selectedStudentProfile.parentEmail) && (
+                <div>
+                  <h4 className="text-lg font-bold text-slate-800 mb-3 flex items-center">
+                    <svg className="w-5 h-5 mr-2 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                    Parent/Guardian Information
+                  </h4>
+                  <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-lg">
+                    <div>
+                      <p className="text-xs font-semibold text-slate-500 uppercase">Name</p>
+                      <p className="text-slate-800">{selectedStudentProfile.parentName || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-slate-500 uppercase">Relation</p>
+                      <p className="text-slate-800">{selectedStudentProfile.parentRelation || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-slate-500 uppercase">Phone</p>
+                      <p className="text-slate-800">{selectedStudentProfile.parentPhone || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-slate-500 uppercase">Email</p>
+                      <p className="text-slate-800">{selectedStudentProfile.parentEmail || 'N/A'}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Passport Information */}
-              {(selectedStudentProfile.passportNumber || selectedStudentProfile.nameAsPerPassport) && (
+              {(selectedStudentProfile.passportNumber || selectedStudentProfile.passportGivenName || selectedStudentProfile.passportLastName) && (
                 <div>
                   <h4 className="text-lg font-bold text-slate-800 mb-3 flex items-center">
                     <svg className="w-5 h-5 mr-2 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -3073,8 +3126,12 @@ export default function AdminDashboard() {
                       <p className="text-slate-800">{selectedStudentProfile.passportNumber || 'N/A'}</p>
                     </div>
                     <div>
-                      <p className="text-xs font-semibold text-slate-500 uppercase">Name as per Passport</p>
-                      <p className="text-slate-800">{selectedStudentProfile.nameAsPerPassport || 'N/A'}</p>
+                      <p className="text-xs font-semibold text-slate-500 uppercase">Given Name</p>
+                      <p className="text-slate-800">{selectedStudentProfile.passportGivenName || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-slate-500 uppercase">Last Name</p>
+                      <p className="text-slate-800">{selectedStudentProfile.passportLastName || 'N/A'}</p>
                     </div>
                     <div>
                       <p className="text-xs font-semibold text-slate-500 uppercase">Issue Location</p>
@@ -3123,9 +3180,31 @@ export default function AdminDashboard() {
                             <p className="text-slate-800">{selectedStudentProfile.schoolCountry || 'N/A'}</p>
                           </div>
                           <div>
-                            <p className="text-xs font-semibold text-slate-500">Grade</p>
+                            <p className="text-xs font-semibold text-slate-500">School Board</p>
+                            <p className="text-slate-800">
+                              {selectedStudentProfile.schoolBoard === 'Other' 
+                                ? selectedStudentProfile.schoolBoardOther || 'N/A'
+                                : selectedStudentProfile.schoolBoard || 'N/A'}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs font-semibold text-slate-500">
+                              {selectedStudentProfile.schoolBoard === 'IB' ? 'Grade (Points)' : 'Grade (%)'}
+                            </p>
                             <p className="text-slate-800">{selectedStudentProfile.schoolGrade || 'N/A'}</p>
                           </div>
+                          {(selectedStudentProfile.schoolStartYear || selectedStudentProfile.schoolEndYear) && (
+                            <>
+                              <div>
+                                <p className="text-xs font-semibold text-slate-500">Start Year</p>
+                                <p className="text-slate-800">{selectedStudentProfile.schoolStartYear || 'N/A'}</p>
+                              </div>
+                              <div>
+                                <p className="text-xs font-semibold text-slate-500">End Year</p>
+                                <p className="text-slate-800">{selectedStudentProfile.schoolEndYear || 'N/A'}</p>
+                              </div>
+                            </>
+                          )}
                         </div>
                       </div>
                     )}
@@ -3142,9 +3221,31 @@ export default function AdminDashboard() {
                             <p className="text-slate-800">{selectedStudentProfile.highSchoolCountry || 'N/A'}</p>
                           </div>
                           <div>
-                            <p className="text-xs font-semibold text-slate-500">Grade</p>
+                            <p className="text-xs font-semibold text-slate-500">School Board</p>
+                            <p className="text-slate-800">
+                              {selectedStudentProfile.highSchoolBoard === 'Other' 
+                                ? selectedStudentProfile.highSchoolBoardOther || 'N/A'
+                                : selectedStudentProfile.highSchoolBoard || 'N/A'}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs font-semibold text-slate-500">
+                              {selectedStudentProfile.highSchoolBoard === 'IB' ? 'Grade (Points)' : 'Grade (%)'}
+                            </p>
                             <p className="text-slate-800">{selectedStudentProfile.highSchoolGrade || 'N/A'}</p>
                           </div>
+                          {(selectedStudentProfile.highSchoolStartYear || selectedStudentProfile.highSchoolEndYear) && (
+                            <>
+                              <div>
+                                <p className="text-xs font-semibold text-slate-500">Start Year</p>
+                                <p className="text-slate-800">{selectedStudentProfile.highSchoolStartYear || 'N/A'}</p>
+                              </div>
+                              <div>
+                                <p className="text-xs font-semibold text-slate-500">End Year</p>
+                                <p className="text-slate-800">{selectedStudentProfile.highSchoolEndYear || 'N/A'}</p>
+                              </div>
+                            </>
+                          )}
                         </div>
                       </div>
                     )}
@@ -3528,12 +3629,21 @@ export default function AdminDashboard() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-2">Name as per Passport</label>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">Given Name</label>
                     <input
                       type="text"
                       className="input"
-                      value={profileEditForm.nameAsPerPassport}
-                      onChange={(e) => setProfileEditForm({...profileEditForm, nameAsPerPassport: e.target.value})}
+                      value={profileEditForm.passportGivenName}
+                      onChange={(e) => setProfileEditForm({...profileEditForm, passportGivenName: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">Last Name</label>
+                    <input
+                      type="text"
+                      className="input"
+                      value={profileEditForm.passportLastName}
+                      onChange={(e) => setProfileEditForm({...profileEditForm, passportLastName: e.target.value})}
                     />
                   </div>
                   <div>
@@ -3566,6 +3676,49 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
+              {/* Parent/Guardian Information */}
+              <div>
+                <h4 className="text-lg font-bold text-slate-800 mb-3">Parent/Guardian Information</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">Parent/Guardian Name</label>
+                    <input
+                      type="text"
+                      className="input"
+                      value={profileEditForm.parentName}
+                      onChange={(e) => setProfileEditForm({...profileEditForm, parentName: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">Relation</label>
+                    <input
+                      type="text"
+                      className="input"
+                      value={profileEditForm.parentRelation}
+                      onChange={(e) => setProfileEditForm({...profileEditForm, parentRelation: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">Parent/Guardian Phone</label>
+                    <input
+                      type="text"
+                      className="input"
+                      value={profileEditForm.parentPhone}
+                      onChange={(e) => setProfileEditForm({...profileEditForm, parentPhone: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">Parent/Guardian Email</label>
+                    <input
+                      type="email"
+                      className="input"
+                      value={profileEditForm.parentEmail}
+                      onChange={(e) => setProfileEditForm({...profileEditForm, parentEmail: e.target.value})}
+                    />
+                  </div>
+                </div>
+              </div>
+
               {/* Education - School */}
               <div>
                 <h4 className="text-lg font-bold text-slate-800 mb-3">School (10th Grade)</h4>
@@ -3589,12 +3742,50 @@ export default function AdminDashboard() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-2">Grade/Percentage</label>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">School Board</label>
+                    <select
+                      className="input"
+                      value={profileEditForm.schoolBoard}
+                      onChange={(e) => setProfileEditForm({...profileEditForm, schoolBoard: e.target.value, schoolGrade: ''})}
+                    >
+                      <option value="">Select School Board</option>
+                      <option value="SSC">SSC</option>
+                      <option value="CBSE">CBSE</option>
+                      <option value="ICSE">ICSE</option>
+                      <option value="IB">IB</option>
+                      <option value="Other">Other (Please specify)</option>
+                    </select>
+                  </div>
+                  {profileEditForm.schoolBoard === 'Other' && (
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 mb-2">Custom School Board</label>
+                      <input
+                        type="text"
+                        className="input"
+                        placeholder="Enter your school board"
+                        value={profileEditForm.schoolBoardOther}
+                        onChange={(e) => setProfileEditForm({...profileEditForm, schoolBoardOther: e.target.value})}
+                      />
+                    </div>
+                  )}
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                      {profileEditForm.schoolBoard === 'IB' ? 'Grade (Points out of 45)' : 'Grade/Percentage'}
+                    </label>
                     <input
                       type="text"
                       className="input"
                       value={profileEditForm.schoolGrade}
-                      onChange={(e) => setProfileEditForm({...profileEditForm, schoolGrade: e.target.value})}
+                      onChange={(e) => {
+                        const value = e.target.value
+                        if (profileEditForm.schoolBoard === 'IB') {
+                          if (value === '' || (/^\d*\.?\d*$/.test(value) && parseFloat(value) <= 45)) {
+                            setProfileEditForm({...profileEditForm, schoolGrade: value})
+                          }
+                        } else {
+                          setProfileEditForm({...profileEditForm, schoolGrade: value})
+                        }
+                      }}
                     />
                   </div>
                 </div>
@@ -3623,12 +3814,50 @@ export default function AdminDashboard() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-2">Grade/Percentage</label>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">School Board</label>
+                    <select
+                      className="input"
+                      value={profileEditForm.highSchoolBoard}
+                      onChange={(e) => setProfileEditForm({...profileEditForm, highSchoolBoard: e.target.value, highSchoolGrade: ''})}
+                    >
+                      <option value="">Select School Board</option>
+                      <option value="HSC">HSC</option>
+                      <option value="CBSE">CBSE</option>
+                      <option value="ICSE">ICSE</option>
+                      <option value="IB">IB</option>
+                      <option value="Other">Other (Please specify)</option>
+                    </select>
+                  </div>
+                  {profileEditForm.highSchoolBoard === 'Other' && (
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 mb-2">Custom School Board</label>
+                      <input
+                        type="text"
+                        className="input"
+                        placeholder="Enter your school board"
+                        value={profileEditForm.highSchoolBoardOther}
+                        onChange={(e) => setProfileEditForm({...profileEditForm, highSchoolBoardOther: e.target.value})}
+                      />
+                    </div>
+                  )}
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                      {profileEditForm.highSchoolBoard === 'IB' ? 'Grade (Points out of 45)' : 'Grade/Percentage'}
+                    </label>
                     <input
                       type="text"
                       className="input"
                       value={profileEditForm.highSchoolGrade}
-                      onChange={(e) => setProfileEditForm({...profileEditForm, highSchoolGrade: e.target.value})}
+                      onChange={(e) => {
+                        const value = e.target.value
+                        if (profileEditForm.highSchoolBoard === 'IB') {
+                          if (value === '' || (/^\d*\.?\d*$/.test(value) && parseFloat(value) <= 45)) {
+                            setProfileEditForm({...profileEditForm, highSchoolGrade: value})
+                          }
+                        } else {
+                          setProfileEditForm({...profileEditForm, highSchoolGrade: value})
+                        }
+                      }}
                     />
                   </div>
                 </div>

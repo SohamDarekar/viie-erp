@@ -21,8 +21,10 @@ const updateStudentSchema = z.object({
   parentName: z.string().optional(),
   parentPhone: z.string().optional(),
   parentEmail: z.string().optional(),
+  parentRelation: z.string().optional(),
   passportNumber: z.string().optional(),
-  nameAsPerPassport: z.string().optional(),
+  passportGivenName: z.string().optional(),
+  passportLastName: z.string().optional(),
   passportIssueLocation: z.string().optional(),
   passportIssueDate: z.string().optional(),
   passportExpiryDate: z.string().optional(),
@@ -34,12 +36,16 @@ const updateStudentSchema = z.object({
   schoolAddress: z.string().optional(),
   schoolStartDate: z.string().optional(),
   schoolEndDate: z.string().optional(),
+  schoolBoard: z.string().optional(),
+  schoolBoardOther: z.string().optional(),
   schoolGrade: z.string().optional(),
   highSchool: z.string().optional(),
   highSchoolCountry: z.string().optional(),
   highSchoolAddress: z.string().optional(),
   highSchoolStartDate: z.string().optional(),
   highSchoolEndDate: z.string().optional(),
+  highSchoolBoard: z.string().optional(),
+  highSchoolBoardOther: z.string().optional(),
   highSchoolGrade: z.string().optional(),
   bachelorsIn: z.string().optional(),
   bachelorsFromInstitute: z.string().optional(),
@@ -139,8 +145,10 @@ export async function PUT(
     if (data.parentName) studentUpdate.parentName = data.parentName
     if (data.parentPhone) studentUpdate.parentPhone = data.parentPhone
     if (data.parentEmail) studentUpdate.parentEmail = data.parentEmail
+    if (data.parentRelation) studentUpdate.parentRelation = data.parentRelation
     if (data.passportNumber) studentUpdate.passportNumber = data.passportNumber
-    if (data.nameAsPerPassport) studentUpdate.nameAsPerPassport = data.nameAsPerPassport
+    if (data.passportGivenName) studentUpdate.passportGivenName = data.passportGivenName
+    if (data.passportLastName) studentUpdate.passportLastName = data.passportLastName
     if (data.passportIssueLocation) studentUpdate.passportIssueLocation = data.passportIssueLocation
     if (data.passportIssueDate) studentUpdate.passportIssueDate = new Date(data.passportIssueDate)
     if (data.passportExpiryDate) studentUpdate.passportExpiryDate = new Date(data.passportExpiryDate)
@@ -153,12 +161,16 @@ export async function PUT(
     if (data.schoolAddress) studentUpdate.schoolAddress = data.schoolAddress
     if (data.schoolStartDate) studentUpdate.schoolStartDate = new Date(data.schoolStartDate)
     if (data.schoolEndDate) studentUpdate.schoolEndDate = new Date(data.schoolEndDate)
+    if (data.schoolBoard) studentUpdate.schoolBoard = data.schoolBoard
+    if (data.schoolBoardOther) studentUpdate.schoolBoardOther = data.schoolBoardOther
     if (data.schoolGrade) studentUpdate.schoolGrade = data.schoolGrade
     if (data.highSchool) studentUpdate.highSchool = data.highSchool
     if (data.highSchoolCountry) studentUpdate.highSchoolCountry = data.highSchoolCountry
     if (data.highSchoolAddress) studentUpdate.highSchoolAddress = data.highSchoolAddress
     if (data.highSchoolStartDate) studentUpdate.highSchoolStartDate = new Date(data.highSchoolStartDate)
     if (data.highSchoolEndDate) studentUpdate.highSchoolEndDate = new Date(data.highSchoolEndDate)
+    if (data.highSchoolBoard) studentUpdate.highSchoolBoard = data.highSchoolBoard
+    if (data.highSchoolBoardOther) studentUpdate.highSchoolBoardOther = data.highSchoolBoardOther
     if (data.highSchoolGrade) studentUpdate.highSchoolGrade = data.highSchoolGrade
     if (data.bachelorsIn) studentUpdate.bachelorsIn = data.bachelorsIn
     if (data.bachelorsFromInstitute) studentUpdate.bachelorsFromInstitute = data.bachelorsFromInstitute

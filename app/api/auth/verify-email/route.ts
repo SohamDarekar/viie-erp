@@ -17,31 +17,60 @@ export async function GET(req: NextRequest) {
     console.log(`[Verify Email] Protocol: ${protocol}, Host: ${host}, BaseURL: ${baseUrl}`)
 
     if (!token) {
+      console.log('[Verify Email] No token provided')
       return NextResponse.redirect(`${baseUrl}/login?error=invalid_token`)
     }
 
-    // Find user with this verification token
+    console.log(`[Verify Email] Looking for token: ${token.substring(0, 10)}...`)
+
+    // Find user with this verification token (check both verified and unverified)
     const user = await prisma.user.findFirst({
       where: {
         verificationToken: token,
-        emailVerified: false,
       },
     })
 
     if (!user) {
+      console.log('[Verify Email] No user found with this token')
+      // Check if token exists but was already used
+      const anyUser = await prisma.user.findFirst({
+        where: {
+          email: { contains: '@' }
+        },
+        select: {
+          email: true,
+          verificationToken: true,
+          emailVerified: true
+        }
+      })
+      console.log('[Verify Email] Sample user in DB:', anyUser ? `Email: ${anyUser.email}, Token exists: ${!!anyUser.verificationToken}, Verified: ${anyUser.emailVerified}` : 'No users found')
       return NextResponse.redirect(`${baseUrl}/login?error=invalid_or_expired_token`)
     }
 
-    // Mark email as verified and clear the token
-    const updatedUser = await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        emailVerified: true,
-        verificationToken: null,
-      },
-    })
+    console.log(`[Verify Email] Found user: ${user.email}, Already verified: ${user.emailVerified}`)
 
-    console.log(`✓ Email verified for user: ${updatedUser.email}`)
+    let updatedUser = user
+
+    // If not yet verified, mark as verified
+    if (!user.emailVerified) {
+      updatedUser = await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          emailVerified: true,
+          verificationToken: null,
+        },
+      })
+      console.log(`✓ Email verified for user: ${updatedUser.email}`)
+    } else {
+      // Already verified, just clear the token
+      updatedUser = await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          verificationToken: null,
+        },
+      })
+      console.log(`✓ User already verified, logging in: ${updatedUser.email}`)
+    }
 
     // Set auth cookie to log them in
     await setAuthCookie({

@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { PhoneInput } from 'react-international-phone'
 import { parsePhoneNumber, isValidPhoneNumber } from 'libphonenumber-js'
+import { CountryDropdown, Country } from '@/components/CountryDropdown'
 
 // Helper function to format DD/MM/YYYY
 const formatDateToDDMMYYYY = (dateString: string) => {
@@ -200,7 +201,7 @@ export default function OnboardingPage() {
     phone: '',
     dateOfBirth: '',
     gender: '',
-    nationality: '',
+    nationality: 'India',
     countryOfBirth: '',
     nativeLanguage: '',
     passportNumber: '',
@@ -223,12 +224,16 @@ export default function OnboardingPage() {
     schoolAddress: '',
     schoolStartYear: '',
     schoolEndYear: '',
+    schoolBoard: '',
+    schoolBoardOther: '',
     schoolGrade: '',
     highSchool: '',
     highSchoolCountry: '',
     highSchoolAddress: '',
     highSchoolStartYear: '',
     highSchoolEndYear: '',
+    highSchoolBoard: '',
+    highSchoolBoardOther: '',
     highSchoolGrade: '',
     bachelorsIn: '',
     bachelorsFromInstitute: '',
@@ -239,8 +244,10 @@ export default function OnboardingPage() {
     bachelorsGrade: '',
     greTaken: undefined as boolean | undefined,
     greScore: '',
+    greTestDate: '',
     toeflTaken: undefined as boolean | undefined,
     toeflScore: '',
+    toeflTestDate: '',
     languageTest: '',
     languageTestScore: '',
     languageTestDate: '',
@@ -255,6 +262,11 @@ export default function OnboardingPage() {
   const [ieltsScorecard, setIeltsScorecard] = useState<File | null>(null)
   const [passportFile, setPassportFile] = useState<File | null>(null)
   const [languageTestScorecard, setLanguageTestScorecard] = useState<File | null>(null)
+  const [greScorecard, setGreScorecard] = useState<File | null>(null)
+  const [toeflScorecard, setToeflScorecard] = useState<File | null>(null)
+  const [passportPhoto, setPassportPhoto] = useState<File | null>(null)
+  const [passportPhotoPreview, setPassportPhotoPreview] = useState<string>('')
+  const [aadharCard, setAadharCard] = useState<File | null>(null)
   
   // Error states - field-level errors
   const [fieldErrors, setFieldErrors] = useState<{[key: string]: string}>({})
@@ -335,12 +347,16 @@ export default function OnboardingPage() {
           schoolAddress: student.schoolAddress || '',
           schoolStartYear: student.schoolStartYear?.toString() || '',
           schoolEndYear: student.schoolEndYear?.toString() || '',
+          schoolBoard: student.schoolBoard || '',
+          schoolBoardOther: student.schoolBoardOther || '',
           schoolGrade: student.schoolGrade || '',
           highSchool: student.highSchool || '',
           highSchoolCountry: student.highSchoolCountry || '',
           highSchoolAddress: student.highSchoolAddress || '',
           highSchoolStartYear: student.highSchoolStartYear?.toString() || '',
           highSchoolEndYear: student.highSchoolEndYear?.toString() || '',
+          highSchoolBoard: student.highSchoolBoard || '',
+          highSchoolBoardOther: student.highSchoolBoardOther || '',
           highSchoolGrade: student.highSchoolGrade || '',
           bachelorsIn: student.bachelorsIn || '',
           bachelorsFromInstitute: student.bachelorsFromInstitute || '',
@@ -351,8 +367,22 @@ export default function OnboardingPage() {
           bachelorsGrade: student.bachelorsGrade || '',
           greTaken: student.greTaken,
           greScore: student.greScore || '',
+          greTestDate: student.greTestDate ? (() => {
+            const date = new Date(student.greTestDate)
+            const day = String(date.getDate()).padStart(2, '0')
+            const month = String(date.getMonth() + 1).padStart(2, '0')
+            const year = date.getFullYear()
+            return `${day}/${month}/${year}`
+          })() : '',
           toeflTaken: student.toeflTaken,
           toeflScore: student.toeflScore || '',
+          toeflTestDate: student.toeflTestDate ? (() => {
+            const date = new Date(student.toeflTestDate)
+            const day = String(date.getDate()).padStart(2, '0')
+            const month = String(date.getMonth() + 1).padStart(2, '0')
+            const year = date.getFullYear()
+            return `${day}/${month}/${year}`
+          })() : '',
           languageTest: student.languageTest || '',
           languageTestScore: student.languageTestScore || '',
           languageTestDate: student.languageTestDate ? (() => {
@@ -366,6 +396,15 @@ export default function OnboardingPage() {
           intakeYear: student.intakeYear?.toString() || '',
           bachelorsCompleted: student.bachelorsCompleted,
         })
+        
+        // Load passport photo if exists
+        if (student.passportPhoto) {
+          if (student.passportPhoto.startsWith('data:image/')) {
+            setPassportPhotoPreview(student.passportPhoto)
+          } else {
+            setPassportPhotoPreview(`/api/student/passport-photo`)
+          }
+        }
       }
     } catch (err) {
       // Profile doesn't exist yet, continue with onboarding
@@ -454,9 +493,36 @@ export default function OnboardingPage() {
       // Validate program and intake year
       if (!formData.program) errors.program = 'Program is required'
       if (!formData.intakeYear) errors.intakeYear = 'Intake year is required'
+      
+      // Validate passport photo - MANDATORY
+      if (!passportPhoto && !passportPhotoPreview) {
+        errors.passportPhoto = 'Passport size photo is required'
+      }
+      
+      // Validate Aadhar Card - MANDATORY
+      if (!aadharCard) {
+        errors.aadharCard = 'Aadhar Card is required'
+      }
     }
     
     if (step === 2) {
+      // Validate School (10th Grade) - ALL MANDATORY
+      if (!formData.school.trim()) errors.school = 'School name is required'
+      if (!formData.schoolCountry.trim()) errors.schoolCountry = 'School country is required'
+      if (!formData.schoolAddress.trim()) errors.schoolAddress = 'School address is required'
+      if (!formData.schoolStartYear) errors.schoolStartYear = 'School start year is required'
+      if (!formData.schoolEndYear) errors.schoolEndYear = 'School end year is required'
+      if (!formData.schoolBoard) errors.schoolBoard = 'School board is required'
+      if (formData.schoolBoard === 'Other' && !formData.schoolBoardOther.trim()) {
+        errors.schoolBoardOther = 'Please specify your school board'
+      }
+      if (!formData.schoolGrade.trim()) errors.schoolGrade = 'School grade is required'
+      
+      // Validate Bachelor's completion status - MANDATORY
+      if (formData.bachelorsCompleted === undefined) {
+        errors.bachelorsCompleted = 'Please select if you have completed your Bachelor\'s'
+      }
+      
       // Validate required education documents
       if (!marksheet10th) {
         errors.marksheet10th = '10th Grade Marksheet is required'
@@ -499,8 +565,9 @@ export default function OnboardingPage() {
       const url = isEditMode ? '/api/student/profile' : '/api/student/onboarding'
       const method = isEditMode ? 'PUT' : 'POST'
 
-      // Check if we have actual files to upload
-      const hasFiles = (marksheet10th instanceof File) || (marksheet12th instanceof File) || (ieltsScorecard instanceof File) || (passportFile instanceof File) || (languageTestScorecard instanceof File)
+      // Check if we have actual files to upload (only for onboarding, not edit mode)
+      // In edit mode, files are already uploaded or will be uploaded separately
+      const hasFiles = !isEditMode && ((marksheet10th instanceof File) || (marksheet12th instanceof File) || (ieltsScorecard instanceof File) || (passportFile instanceof File) || (languageTestScorecard instanceof File) || (greScorecard instanceof File) || (toeflScorecard instanceof File) || (passportPhoto instanceof File) || (aadharCard instanceof File))
       console.log('Has files to upload:', hasFiles)
       
       let payload: any
@@ -562,6 +629,20 @@ export default function OnboardingPage() {
         delete convertedFormData.languageTestDate
       }
       
+      const convertedGreTestDate = safeDateConvert(formData.greTestDate)
+      if (convertedGreTestDate) {
+        convertedFormData.greTestDate = convertedGreTestDate
+      } else {
+        delete convertedFormData.greTestDate
+      }
+      
+      const convertedToeflTestDate = safeDateConvert(formData.toeflTestDate)
+      if (convertedToeflTestDate) {
+        convertedFormData.toeflTestDate = convertedToeflTestDate
+      } else {
+        delete convertedFormData.toeflTestDate
+      }
+      
       // Bachelor dates are already in YYYY-MM-DD format from date inputs
       // Just validate they're not empty before including them
       if (!formData.bachelorsStartDate || formData.bachelorsStartDate.trim() === '') {
@@ -588,55 +669,68 @@ export default function OnboardingPage() {
         if (ieltsScorecard) formDataObj.append('ieltsScorecard', ieltsScorecard)
         if (passportFile) formDataObj.append('passport', passportFile)
         if (languageTestScorecard) formDataObj.append('languageTestScorecard', languageTestScorecard)
+        if (greScorecard) formDataObj.append('greScorecard', greScorecard)
+        if (toeflScorecard) formDataObj.append('toeflScorecard', toeflScorecard)
+        if (passportPhoto) formDataObj.append('passportPhoto', passportPhoto)
+        if (aadharCard) formDataObj.append('aadharCard', aadharCard)
         
         payload = formDataObj
         // Don't set Content-Type, browser will set it with boundary
       } else {
-        // Regular JSON payload
-        payload = {
-          ...convertedFormData,
-        }
+        // Regular JSON payload - Start with a clean object
+        payload = {}
         
-        // Convert intakeYear to number if it's not empty
-        if (convertedFormData.intakeYear && convertedFormData.intakeYear !== '') {
-          payload.intakeYear = parseInt(formData.intakeYear.toString())
-        }
-        
-        // Convert year strings to numbers
-        if (formData.schoolStartYear && formData.schoolStartYear !== '') {
-          payload.schoolStartYear = parseInt(formData.schoolStartYear)
-        }
-        if (formData.schoolEndYear && formData.schoolEndYear !== '') {
-          payload.schoolEndYear = parseInt(formData.schoolEndYear)
-        }
-        if (formData.highSchoolStartYear && formData.highSchoolStartYear !== '') {
-          payload.highSchoolStartYear = parseInt(formData.highSchoolStartYear)
-        }
-        if (formData.highSchoolEndYear && formData.highSchoolEndYear !== '') {
-          payload.highSchoolEndYear = parseInt(formData.highSchoolEndYear)
-        }
-        
-        // Remove undefined, empty string, null values, and invalid entries
-        Object.keys(payload).forEach(key => {
-          const value = payload[key]
-          // Remove if undefined, null, empty string
+        // First, clean all string values from convertedFormData before adding to payload
+        Object.keys(convertedFormData).forEach(key => {
+          const value = convertedFormData[key]
+          // Skip if undefined, null, or empty string
           if (value === undefined || value === null || value === '') {
-            delete payload[key]
             return
           }
-          // Remove if it's a string with only whitespace or special chars like "-"
+          // Skip if it's a string with only whitespace or special chars like "-"
           if (typeof value === 'string') {
             const trimmed = value.trim()
             if (trimmed === '' || trimmed === '-' || trimmed === '/' || trimmed === '--') {
-              delete payload[key]
               return
             }
           }
-          // Remove if it's NaN
-          if (typeof value === 'number' && isNaN(value)) {
-            delete payload[key]
-          }
+          // Add to payload if it passed validation
+          payload[key] = value
         })
+        
+        // Convert intakeYear to number if it's valid
+        if (formData.intakeYear && formData.intakeYear !== '' && formData.intakeYear !== '-') {
+          const intakeYearNum = parseInt(formData.intakeYear.toString())
+          if (!isNaN(intakeYearNum)) {
+            payload.intakeYear = intakeYearNum
+          }
+        }
+        
+        // Convert year strings to numbers - only if valid
+        if (formData.schoolStartYear && formData.schoolStartYear !== '' && formData.schoolStartYear !== '-') {
+          const yearNum = parseInt(formData.schoolStartYear)
+          if (!isNaN(yearNum)) {
+            payload.schoolStartYear = yearNum
+          }
+        }
+        if (formData.schoolEndYear && formData.schoolEndYear !== '' && formData.schoolEndYear !== '-') {
+          const yearNum = parseInt(formData.schoolEndYear)
+          if (!isNaN(yearNum)) {
+            payload.schoolEndYear = yearNum
+          }
+        }
+        if (formData.highSchoolStartYear && formData.highSchoolStartYear !== '' && formData.highSchoolStartYear !== '-') {
+          const yearNum = parseInt(formData.highSchoolStartYear)
+          if (!isNaN(yearNum)) {
+            payload.highSchoolStartYear = yearNum
+          }
+        }
+        if (formData.highSchoolEndYear && formData.highSchoolEndYear !== '' && formData.highSchoolEndYear !== '-') {
+          const yearNum = parseInt(formData.highSchoolEndYear)
+          if (!isNaN(yearNum)) {
+            payload.highSchoolEndYear = yearNum
+          }
+        }
         
         console.log('Payload before stringify:', payload)
         headers['Content-Type'] = 'application/json'
@@ -668,20 +762,6 @@ export default function OnboardingPage() {
     }
   }
 
-  if (initialLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <svg className="animate-spin h-12 w-12 text-primary-600 mx-auto mb-4" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-          </svg>
-          <p className="text-slate-600">Loading profile...</p>
-        </div>
-      </div>
-    )
-  }
-
   const nextStep = (e?: React.MouseEvent) => {
     if (e) e.preventDefault()
     
@@ -707,6 +787,27 @@ export default function OnboardingPage() {
       years.push(year)
     }
     return years
+  }
+
+  // Prevent Enter key from submitting the form
+  const handleFormKeyDown = (e: React.KeyboardEvent<HTMLFormElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+    }
+  }
+
+  if (initialLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <svg className="animate-spin h-12 w-12 text-primary-600 mx-auto mb-4" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <p className="text-slate-600">Loading profile...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -779,7 +880,7 @@ export default function OnboardingPage() {
                 <h3 className="text-2xl font-bold text-gray-800 mb-6">Personal Details</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">First Name *</label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">First Name <span className="text-red-500">*</span></label>
                     <input
                       type="text"
                       required
@@ -799,7 +900,7 @@ export default function OnboardingPage() {
                     )}
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Last Name *</label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Last Name <span className="text-red-500">*</span></label>
                     <input
                       type="text"
                       required
@@ -819,7 +920,7 @@ export default function OnboardingPage() {
                     )}
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Phone Number *</label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Phone Number <span className="text-red-500">*</span></label>
                     <PhoneInput
                       defaultCountry="in"
                       forceDialCode
@@ -888,7 +989,7 @@ export default function OnboardingPage() {
                     )}
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Date of Birth * (DD/MM/YYYY)</label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Date of Birth <span className="text-red-500">*</span> (DD/MM/YYYY)</label>
                     <input
                       type="text"
                       required
@@ -923,8 +1024,181 @@ export default function OnboardingPage() {
                       <p className="mt-1 text-sm text-red-600 error-message">{fieldErrors.dateOfBirth}</p>
                     )}
                   </div>
+                  
+                  {/* Passport Size Photo Upload */}
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Passport Size Photo <span className="text-red-500">*</span>
+                    </label>
+                    <p className="text-sm text-gray-500 mb-3">Upload a recent passport-size photograph (PNG, JPG, or JPEG only)</p>
+                    
+                    {passportPhotoPreview ? (
+                      <div className="flex items-start space-x-4">
+                        <div className="relative">
+                          <img 
+                            src={passportPhotoPreview} 
+                            alt="Passport Photo Preview" 
+                            className="w-32 h-32 object-cover rounded-lg border-2 border-gray-300 shadow-sm"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPassportPhoto(null)
+                              setPassportPhotoPreview('')
+                              if (fieldErrors.passportPhoto) {
+                                const newErrors = { ...fieldErrors }
+                                delete newErrors.passportPhoto
+                                setFieldErrors(newErrors)
+                              }
+                            }}
+                            className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-red-600 shadow-md"
+                          >
+                            ×
+                          </button>
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm text-green-600 font-medium mb-2">✓ Photo uploaded successfully</p>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPassportPhoto(null)
+                              setPassportPhotoPreview('')
+                            }}
+                            className="text-sm text-indigo-600 hover:text-indigo-800 underline"
+                          >
+                            Change photo
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div>
+                        <input
+                          type="file"
+                          accept="image/png,image/jpg,image/jpeg"
+                          className={`w-full text-sm border rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 file:mr-2 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 dark:file:bg-indigo-900/50 dark:file:text-indigo-300 ${
+                            fieldErrors.passportPhoto ? 'border-red-500 dark:border-red-500' : 'border-slate-300 dark:border-slate-600'
+                          }`}
+                          onChange={(e) => {
+                            const file = e.target.files?.[0]
+                            if (file) {
+                              // Validate file type
+                              const validTypes = ['image/png', 'image/jpg', 'image/jpeg']
+                              if (!validTypes.includes(file.type)) {
+                                setFieldErrors({ ...fieldErrors, passportPhoto: 'Only PNG, JPG, and JPEG formats are allowed' })
+                                setPassportPhoto(null)
+                                setPassportPhotoPreview('')
+                                e.target.value = ''
+                                return
+                              }
+                              
+                              // Validate file size (max 5MB)
+                              if (file.size > 5 * 1024 * 1024) {
+                                setFieldErrors({ ...fieldErrors, passportPhoto: 'File size must be less than 5MB' })
+                                setPassportPhoto(null)
+                                setPassportPhotoPreview('')
+                                e.target.value = ''
+                                return
+                              }
+                              
+                              setPassportPhoto(file)
+                              const reader = new FileReader()
+                              reader.onloadend = (event) => {
+                                setPassportPhotoPreview(event.target?.result as string)
+                              }
+                              reader.readAsDataURL(file)
+                              
+                              // Clear error
+                              if (fieldErrors.passportPhoto) {
+                                const newErrors = { ...fieldErrors }
+                                delete newErrors.passportPhoto
+                                setFieldErrors(newErrors)
+                              }
+                            }
+                          }}
+                        />
+                        {fieldErrors.passportPhoto && (
+                          <p className="mt-1 text-sm text-red-600 error-message">{fieldErrors.passportPhoto}</p>
+                        )}
+                        <p className="mt-1 text-xs text-gray-500">Maximum file size: 5MB</p>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Aadhar Card Upload */}
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Aadhar Card <span className="text-red-500">*</span>
+                    </label>
+                    <p className="text-sm text-gray-500 mb-3">Upload your Aadhar Card (PDF only)</p>
+                    
+                    {aadharCard && (
+                      <div className="flex items-center justify-between p-4 bg-green-50 border border-green-200 rounded-xl mb-2">
+                        <div className="flex items-center space-x-3">
+                          <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                          <div>
+                            <p className="text-sm font-medium text-gray-900">{aadharCard.name}</p>
+                            <p className="text-xs text-gray-500">{(aadharCard.size / 1024).toFixed(2)} KB</p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAadharCard(null)
+                            if (fieldErrors.aadharCard) {
+                              const newErrors = { ...fieldErrors }
+                              delete newErrors.aadharCard
+                              setFieldErrors(newErrors)
+                            }
+                          }}
+                          className="text-red-600 hover:text-red-800 font-medium text-sm"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    )}
+                    <input
+                      type="file"
+                      accept="application/pdf"
+                      className={`w-full text-sm border rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 file:mr-2 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 dark:file:bg-indigo-900/50 dark:file:text-indigo-300 ${
+                        fieldErrors.aadharCard ? 'border-red-500 dark:border-red-500' : 'border-slate-300 dark:border-slate-600'
+                      }`}
+                          onChange={(e) => {
+                            const file = e.target.files?.[0]
+                            if (file) {
+                              if (file.type !== 'application/pdf') {
+                                setFieldErrors({ ...fieldErrors, aadharCard: 'Only PDF files are allowed' })
+                                setAadharCard(null)
+                                e.target.value = ''
+                                return
+                              }
+                              
+                              if (file.size > 5 * 1024 * 1024) {
+                                setFieldErrors({ ...fieldErrors, aadharCard: 'File size must be less than 5MB' })
+                                setAadharCard(null)
+                                e.target.value = ''
+                                return
+                              }
+                              
+                              setAadharCard(file)
+                              
+                              if (fieldErrors.aadharCard) {
+                                const newErrors = { ...fieldErrors }
+                                delete newErrors.aadharCard
+                                setFieldErrors(newErrors)
+                              }
+                            }
+                          }}
+                        />
+                        {fieldErrors.aadharCard && (
+                          <p className="mt-1 text-sm text-red-600 error-message">{fieldErrors.aadharCard}</p>
+                        )}
+                        <p className="mt-1 text-xs text-gray-500">Maximum file size: 5MB</p>
+                  </div>
+                  
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Gender *</label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Gender <span className="text-red-500">*</span></label>
                     <select
                       required
                       className={`w-full px-4 py-3 border ${fieldErrors.gender ? 'border-red-500' : 'border-gray-300'} rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500`}
@@ -948,27 +1222,27 @@ export default function OnboardingPage() {
                     )}
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Nationality *</label>
-                    <input
-                      type="text"
-                      required
-                      className={`w-full px-4 py-3 border ${fieldErrors.nationality ? 'border-red-500' : 'border-gray-300'} rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500`}
-                      value={formData.nationality}
-                      onChange={(e) => {
-                        setFormData({ ...formData, nationality: e.target.value })
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Nationality <span className="text-red-500">*</span></label>
+                    <CountryDropdown
+                      defaultValue={formData.nationality}
+                      onChange={(country: Country) => {
+                        setFormData({ ...formData, nationality: country.name })
                         if (fieldErrors.nationality) {
                           const newErrors = { ...fieldErrors }
                           delete newErrors.nationality
                           setFieldErrors(newErrors)
                         }
                       }}
+                      placeholder="Select your nationality"
+                      disabled={false}
+                      error={!!fieldErrors.nationality}
                     />
                     {fieldErrors.nationality && (
                       <p className="mt-1 text-sm text-red-600 error-message">{fieldErrors.nationality}</p>
                     )}
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Country of Birth *</label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Country of Birth <span className="text-red-500">*</span></label>
                     <input
                       type="text"
                       required
@@ -988,7 +1262,7 @@ export default function OnboardingPage() {
                     )}
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Native Language *</label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Native Language <span className="text-red-500">*</span></label>
                     <input
                       type="text"
                       required
@@ -1100,37 +1374,61 @@ export default function OnboardingPage() {
                   </div>
                   <div className="md:col-span-2">
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Passport Document (PDF only)</label>
+                    {passportFile && (
+                      <div className="flex items-center justify-between p-4 bg-green-50 border border-green-200 rounded-xl mb-2">
+                        <div className="flex items-center space-x-3">
+                          <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                          <div>
+                            <p className="text-sm font-medium text-gray-900">{passportFile.name}</p>
+                            <p className="text-xs text-gray-500">{(passportFile.size / 1024).toFixed(2)} KB</p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPassportFile(null)
+                            if (fieldErrors.passportFile) {
+                              const newErrors = { ...fieldErrors }
+                              delete newErrors.passportFile
+                              setFieldErrors(newErrors)
+                            }
+                          }}
+                          className="text-red-600 hover:text-red-800 font-medium text-sm"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    )}
                     <input
                       type="file"
                       accept=".pdf"
-                      className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
-                        fieldErrors.passportFile ? 'border-red-500' : 'border-gray-300'
+                      className={`w-full text-sm border rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 file:mr-2 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 dark:file:bg-indigo-900/50 dark:file:text-indigo-300 ${
+                        fieldErrors.passportFile ? 'border-red-500 dark:border-red-500' : 'border-slate-300 dark:border-slate-600'
                       }`}
-                      onChange={(e) => {
-                        const file = e.target.files?.[0] || null
-                        if (file && file.type !== 'application/pdf') {
-                          setFieldErrors({ ...fieldErrors, passportFile: 'Only PDF files are allowed' })
-                          setPassportFile(null)
-                          e.target.value = ''
-                        } else {
-                          setPassportFile(file)
-                          if (fieldErrors.passportFile) {
-                            const newErrors = { ...fieldErrors }
-                            delete newErrors.passportFile
-                            setFieldErrors(newErrors)
+                        onChange={(e) => {
+                          const file = e.target.files?.[0] || null
+                          if (file && file.type !== 'application/pdf') {
+                            setFieldErrors({ ...fieldErrors, passportFile: 'Only PDF files are allowed' })
+                            setPassportFile(null)
+                            e.target.value = ''
+                          } else {
+                            setPassportFile(file)
+                            if (fieldErrors.passportFile) {
+                              const newErrors = { ...fieldErrors }
+                              delete newErrors.passportFile
+                              setFieldErrors(newErrors)
+                            }
                           }
-                        }
-                      }}
-                    />
-                    {passportFile && (
-                      <p className="mt-1 text-sm text-green-600">Selected: {passportFile.name}</p>
-                    )}
+                        }}
+                      />
                     {fieldErrors.passportFile && (
                       <p className="error-message mt-1 text-sm text-red-600">{fieldErrors.passportFile}</p>
                     )}
                   </div>
                   <div className="md:col-span-2">
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Full Address *</label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Full Address <span className="text-red-500">*</span></label>
                     <textarea
                       rows={3}
                       required
@@ -1151,7 +1449,7 @@ export default function OnboardingPage() {
                     )}
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Postal Code *</label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Postal Code <span className="text-red-500">*</span></label>
                     <input
                       type="text"
                       required
@@ -1177,7 +1475,7 @@ export default function OnboardingPage() {
                   <h4 className="text-lg font-semibold text-gray-800 mb-4">Parent/Guardian Contact *</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">Parent/Guardian Name *</label>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">Parent/Guardian Name <span className="text-red-500">*</span></label>
                       <input
                         type="text"
                         required
@@ -1197,7 +1495,7 @@ export default function OnboardingPage() {
                       )}
                     </div>
                     <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">Relation *</label>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">Relation <span className="text-red-500">*</span></label>
                       <select
                         className={`w-full px-4 py-3 border ${fieldErrors.parentRelation ? 'border-red-500' : 'border-gray-300'} rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white`}
                         value={formData.parentRelation}
@@ -1221,7 +1519,7 @@ export default function OnboardingPage() {
                     </div>
                     {formData.parentRelation === 'Other' && (
                       <div className="md:col-span-2">
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">Please Specify Relation *</label>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">Please Specify Relation <span className="text-red-500">*</span></label>
                         <input
                           type="text"
                           className={`w-full px-4 py-3 border ${fieldErrors.parentRelationOther ? 'border-red-500' : 'border-gray-300'} rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white`}
@@ -1242,7 +1540,7 @@ export default function OnboardingPage() {
                       </div>
                     )}
                     <div className="md:col-span-2">
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">Parent/Guardian Phone Number *</label>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">Parent/Guardian Phone Number <span className="text-red-500">*</span></label>
                       <PhoneInput
                         defaultCountry="in"
                         forceDialCode
@@ -1304,7 +1602,7 @@ export default function OnboardingPage() {
                       )}
                     </div>
                     <div className="md:col-span-2">
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">Parent/Guardian Email *</label>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">Parent/Guardian Email <span className="text-red-500">*</span></label>
                       <input
                         type="email"
                         required
@@ -1331,7 +1629,7 @@ export default function OnboardingPage() {
                   <h4 className="text-lg font-semibold text-gray-800 mb-4">Course Details</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">Program *</label>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">Program <span className="text-red-500">*</span></label>
                       <select
                         required
                         className={`w-full px-4 py-3 border ${fieldErrors.program ? 'border-red-500' : 'border-gray-300'} rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500`}
@@ -1354,7 +1652,7 @@ export default function OnboardingPage() {
                       )}
                     </div>
                     <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">Intake Year *</label>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">Intake Year <span className="text-red-500">*</span></label>
                       <input
                         type="number"
                         required
@@ -1362,6 +1660,11 @@ export default function OnboardingPage() {
                         placeholder="Enter intake year"
                         className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-50 cursor-not-allowed focus:outline-none"
                         value={formData.intakeYear || new Date().getFullYear()}
+                        style={{
+                          appearance: 'none',
+                          MozAppearance: 'textfield',
+                          WebkitAppearance: 'none',
+                        }}
                       />
                     </div>
                   </div>
@@ -1379,82 +1682,253 @@ export default function OnboardingPage() {
                   <h4 className="text-lg font-semibold text-gray-800 mb-4">School (10th Grade)</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">School Name</label>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">School Name <span className="text-red-500">*</span></label>
                       <input
                         type="text"
-                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        required
+                        className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                          fieldErrors.school ? 'border-red-500' : 'border-gray-300'
+                        }`}
                         value={formData.school}
-                        onChange={(e) => setFormData({ ...formData, school: e.target.value })}
+                        onChange={(e) => {
+                          setFormData({ ...formData, school: e.target.value })
+                          if (fieldErrors.school) {
+                            const newErrors = { ...fieldErrors }
+                            delete newErrors.school
+                            setFieldErrors(newErrors)
+                          }
+                        }}
                       />
+                      {fieldErrors.school && (
+                        <p className="mt-1 text-sm text-red-600 error-message">{fieldErrors.school}</p>
+                      )}
                     </div>
                     <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">Country</label>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">Country <span className="text-red-500">*</span></label>
                       <input
                         type="text"
-                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        required
+                        className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                          fieldErrors.schoolCountry ? 'border-red-500' : 'border-gray-300'
+                        }`}
                         value={formData.schoolCountry}
-                        onChange={(e) => setFormData({ ...formData, schoolCountry: e.target.value })}
+                        onChange={(e) => {
+                          setFormData({ ...formData, schoolCountry: e.target.value })
+                          if (fieldErrors.schoolCountry) {
+                            const newErrors = { ...fieldErrors }
+                            delete newErrors.schoolCountry
+                            setFieldErrors(newErrors)
+                          }
+                        }}
                       />
+                      {fieldErrors.schoolCountry && (
+                        <p className="mt-1 text-sm text-red-600 error-message">{fieldErrors.schoolCountry}</p>
+                      )}
                     </div>
                     <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">Address</label>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">Address <span className="text-red-500">*</span></label>
                       <input
                         type="text"
-                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        required
+                        className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                          fieldErrors.schoolAddress ? 'border-red-500' : 'border-gray-300'
+                        }`}
                         value={formData.schoolAddress}
-                        onChange={(e) => setFormData({ ...formData, schoolAddress: e.target.value })}
+                        onChange={(e) => {
+                          setFormData({ ...formData, schoolAddress: e.target.value })
+                          if (fieldErrors.schoolAddress) {
+                            const newErrors = { ...fieldErrors }
+                            delete newErrors.schoolAddress
+                            setFieldErrors(newErrors)
+                          }
+                        }}
                       />
+                      {fieldErrors.schoolAddress && (
+                        <p className="mt-1 text-sm text-red-600 error-message">{fieldErrors.schoolAddress}</p>
+                      )}
                     </div>
                     <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">Start Year</label>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">Start Year <span className="text-red-500">*</span></label>
                       <select
-                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        required
+                        className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                          fieldErrors.schoolStartYear ? 'border-red-500' : 'border-gray-300'
+                        }`}
                         value={formData.schoolStartYear}
-                        onChange={(e) => setFormData({ ...formData, schoolStartYear: e.target.value })}
+                        onChange={(e) => {
+                          setFormData({ ...formData, schoolStartYear: e.target.value })
+                          if (fieldErrors.schoolStartYear) {
+                            const newErrors = { ...fieldErrors }
+                            delete newErrors.schoolStartYear
+                            setFieldErrors(newErrors)
+                          }
+                        }}
                       >
                         <option value="">Select Year</option>
                         {generateYearOptions().map(year => (
                           <option key={year} value={year}>{year}</option>
                         ))}
                       </select>
+                      {fieldErrors.schoolStartYear && (
+                        <p className="mt-1 text-sm text-red-600 error-message">{fieldErrors.schoolStartYear}</p>
+                      )}
                     </div>
                     <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">End Year</label>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">End Year <span className="text-red-500">*</span></label>
                       <select
-                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        required
+                        className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                          fieldErrors.schoolEndYear ? 'border-red-500' : 'border-gray-300'
+                        }`}
                         value={formData.schoolEndYear}
-                        onChange={(e) => setFormData({ ...formData, schoolEndYear: e.target.value })}
+                        onChange={(e) => {
+                          setFormData({ ...formData, schoolEndYear: e.target.value })
+                          if (fieldErrors.schoolEndYear) {
+                            const newErrors = { ...fieldErrors }
+                            delete newErrors.schoolEndYear
+                            setFieldErrors(newErrors)
+                          }
+                        }}
                       >
                         <option value="">Select Year</option>
                         {generateYearOptions().map(year => (
                           <option key={year} value={year}>{year}</option>
                         ))}
                       </select>
+                      {fieldErrors.schoolEndYear && (
+                        <p className="mt-1 text-sm text-red-600 error-message">{fieldErrors.schoolEndYear}</p>
+                      )}
                     </div>
                     <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">Grade (in %)</label>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">School Board <span className="text-red-500">*</span></label>
+                      <select
+                        required
+                        className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                          fieldErrors.schoolBoard ? 'border-red-500' : 'border-gray-300'
+                        }`}
+                        value={formData.schoolBoard}
+                        onChange={(e) => {
+                          setFormData({ ...formData, schoolBoard: e.target.value, schoolGrade: '' })
+                          if (fieldErrors.schoolBoard) {
+                            const newErrors = { ...fieldErrors }
+                            delete newErrors.schoolBoard
+                            setFieldErrors(newErrors)
+                          }
+                        }}
+                      >
+                        <option value="">Select School Board</option>
+                        <option value="SSC">SSC</option>
+                        <option value="CBSE">CBSE</option>
+                        <option value="ICSE">ICSE</option>
+                        <option value="IB">IB</option>
+                        <option value="Other">Other (Please specify)</option>
+                      </select>
+                      {fieldErrors.schoolBoard && (
+                        <p className="mt-1 text-sm text-red-600 error-message">{fieldErrors.schoolBoard}</p>
+                      )}
+                    </div>
+                    {formData.schoolBoard === 'Other' && (
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">Custom School Board <span className="text-red-500">*</span></label>
+                        <input
+                          type="text"
+                          required
+                          className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                            fieldErrors.schoolBoardOther ? 'border-red-500' : 'border-gray-300'
+                          }`}
+                          placeholder="Enter your school board"
+                          value={formData.schoolBoardOther}
+                          onChange={(e) => {
+                            setFormData({ ...formData, schoolBoardOther: e.target.value })
+                            if (fieldErrors.schoolBoardOther) {
+                              const newErrors = { ...fieldErrors }
+                              delete newErrors.schoolBoardOther
+                              setFieldErrors(newErrors)
+                            }
+                          }}
+                        />
+                        {fieldErrors.schoolBoardOther && (
+                          <p className="mt-1 text-sm text-red-600 error-message">{fieldErrors.schoolBoardOther}</p>
+                        )}
+                      </div>
+                    )}
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        {formData.schoolBoard === 'IB' ? 'Grade (Points out of 45)' : 'Grade (in %)'} <span className="text-red-500">*</span>
+                      </label>
                       <input
                         type="text"
-                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        required
+                        className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                          fieldErrors.schoolGrade ? 'border-red-500' : 'border-gray-300'
+                        }`}
+                        placeholder={formData.schoolBoard === 'IB' ? 'Enter points (max 45)' : 'Enter percentage'}
                         value={formData.schoolGrade}
-                        onChange={(e) => setFormData({ ...formData, schoolGrade: e.target.value })}
+                        onChange={(e) => {
+                          const value = e.target.value
+                          if (formData.schoolBoard === 'IB') {
+                            // For IB, validate that it's a number and max 45
+                            if (value === '' || (/^\d*\.?\d*$/.test(value) && parseFloat(value) <= 45)) {
+                              setFormData({ ...formData, schoolGrade: value })
+                              if (fieldErrors.schoolGrade) {
+                                const newErrors = { ...fieldErrors }
+                                delete newErrors.schoolGrade
+                                setFieldErrors(newErrors)
+                              }
+                            }
+                          } else {
+                            setFormData({ ...formData, schoolGrade: value })
+                            if (fieldErrors.schoolGrade) {
+                              const newErrors = { ...fieldErrors }
+                              delete newErrors.schoolGrade
+                              setFieldErrors(newErrors)
+                            }
+                          }
+                        }}
                       />
+                      {fieldErrors.schoolGrade && (
+                        <p className="mt-1 text-sm text-red-600 error-message">{fieldErrors.schoolGrade}</p>
+                      )}
                     </div>
                     <div className="md:col-span-2">
                       <label className="block text-sm font-semibold text-gray-700 mb-2">
                         10th Grade Marksheet <span className="text-red-500">*</span>
                       </label>
+                      {marksheet10th && (
+                        <div className="flex items-center justify-between p-4 bg-green-50 border border-green-200 rounded-xl mb-2">
+                          <div className="flex items-center space-x-3">
+                            <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            <div>
+                              <p className="text-sm font-medium text-gray-900">{marksheet10th.name}</p>
+                              <p className="text-xs text-gray-500">{(marksheet10th.size / 1024).toFixed(2)} KB</p>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setMarksheet10th(null)
+                              if (fieldErrors.marksheet10th) {
+                                const newErrors = { ...fieldErrors }
+                                delete newErrors.marksheet10th
+                                setFieldErrors(newErrors)
+                              }
+                            }}
+                            className="text-red-600 hover:text-red-800 font-medium text-sm"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      )}
                       <input
                         type="file"
                         accept=".pdf,.jpg,.jpeg,.png"
-                        className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
-                          fieldErrors.marksheet10th ? 'border-red-500' : 'border-gray-300'
+                        className={`w-full text-sm border rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 file:mr-2 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 dark:file:bg-indigo-900/50 dark:file:text-indigo-300 ${
+                          fieldErrors.marksheet10th ? 'border-red-500 dark:border-red-500' : 'border-slate-300 dark:border-slate-600'
                         }`}
                         onChange={(e) => setMarksheet10th(e.target.files?.[0] || null)}
                       />
-                      {marksheet10th && (
-                        <p className="mt-1 text-sm text-green-600">Selected: {marksheet10th.name}</p>
-                      )}
                       {fieldErrors.marksheet10th && (
                         <p className="error-message mt-1 text-sm text-red-600">{fieldErrors.marksheet10th}</p>
                       )}
@@ -1520,25 +1994,82 @@ export default function OnboardingPage() {
                       </select>
                     </div>
                     <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">Grade (in %)</label>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">School Board</label>
+                      <select
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        value={formData.highSchoolBoard}
+                        onChange={(e) => setFormData({ ...formData, highSchoolBoard: e.target.value, highSchoolGrade: '' })}
+                      >
+                        <option value="">Select School Board</option>
+                        <option value="SSC">SSC</option>
+                        <option value="CBSE">CBSE</option>
+                        <option value="ICSE">ICSE</option>
+                        <option value="IB">IB</option>
+                        <option value="Other">Other (Please specify)</option>
+                      </select>
+                    </div>
+                    {formData.highSchoolBoard === 'Other' && (
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">Custom School Board</label>
+                        <input
+                          type="text"
+                          className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          placeholder="Enter your school board"
+                          value={formData.highSchoolBoardOther}
+                          onChange={(e) => setFormData({ ...formData, highSchoolBoardOther: e.target.value })}
+                        />
+                      </div>
+                    )}
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        {formData.highSchoolBoard === 'IB' ? 'Grade (Points out of 45)' : 'Grade (in %)'}
+                      </label>
                       <input
                         type="text"
                         className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        placeholder={formData.highSchoolBoard === 'IB' ? 'Enter points (max 45)' : 'Enter percentage'}
                         value={formData.highSchoolGrade}
-                        onChange={(e) => setFormData({ ...formData, highSchoolGrade: e.target.value })}
+                        onChange={(e) => {
+                          const value = e.target.value
+                          if (formData.highSchoolBoard === 'IB') {
+                            // For IB, validate that it's a number and max 45
+                            if (value === '' || (/^\d*\.?\d*$/.test(value) && parseFloat(value) <= 45)) {
+                              setFormData({ ...formData, highSchoolGrade: value })
+                            }
+                          } else {
+                            setFormData({ ...formData, highSchoolGrade: value })
+                          }
+                        }}
                       />
                     </div>
                     <div className="md:col-span-2">
                       <label className="block text-sm font-semibold text-gray-700 mb-2">12th Grade Marksheet</label>
+                      {marksheet12th && (
+                        <div className="flex items-center justify-between p-4 bg-green-50 border border-green-200 rounded-xl mb-2">
+                          <div className="flex items-center space-x-3">
+                            <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            <div>
+                              <p className="text-sm font-medium text-gray-900">{marksheet12th.name}</p>
+                              <p className="text-xs text-gray-500">{(marksheet12th.size / 1024).toFixed(2)} KB</p>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setMarksheet12th(null)}
+                            className="text-red-600 hover:text-red-800 font-medium text-sm"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      )}
                       <input
                         type="file"
                         accept=".pdf,.jpg,.jpeg,.png"
-                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="w-full text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 file:mr-2 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 dark:file:bg-indigo-900/50 dark:file:text-indigo-300"
                         onChange={(e) => setMarksheet12th(e.target.files?.[0] || null)}
                       />
-                      {marksheet12th && (
-                        <p className="mt-1 text-sm text-green-600">Selected: {marksheet12th.name}</p>
-                      )}
                     </div>
                   </div>
                 </div>
@@ -1547,15 +2078,29 @@ export default function OnboardingPage() {
                 <div className="bg-slate-50 p-6 rounded-lg">
                   <h4 className="text-lg font-semibold text-gray-800 mb-4">Bachelor&apos;s Degree</h4>
                   <div className="mb-5">
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Have you completed your Bachelor&apos;s?</label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Have you completed your Bachelor&apos;s? <span className="text-red-500">*</span></label>
                     <select
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      value={formData.bachelorsCompleted ? 'yes' : 'no'}
-                      onChange={(e) => setFormData({ ...formData, bachelorsCompleted: e.target.value === 'yes' })}
+                      required
+                      className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                        fieldErrors.bachelorsCompleted ? 'border-red-500' : 'border-gray-300'
+                      }`}
+                      value={formData.bachelorsCompleted === undefined ? '' : (formData.bachelorsCompleted ? 'yes' : 'no')}
+                      onChange={(e) => {
+                        setFormData({ ...formData, bachelorsCompleted: e.target.value === 'yes' })
+                        if (fieldErrors.bachelorsCompleted) {
+                          const newErrors = { ...fieldErrors }
+                          delete newErrors.bachelorsCompleted
+                          setFieldErrors(newErrors)
+                        }
+                      }}
                     >
+                      <option value="">-- Please Select --</option>
                       <option value="no">No</option>
                       <option value="yes">Yes</option>
                     </select>
+                    {fieldErrors.bachelorsCompleted && (
+                      <p className="mt-1 text-sm text-red-600 error-message">{fieldErrors.bachelorsCompleted}</p>
+                    )}
                   </div>
                   {formData.bachelorsCompleted && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -1640,44 +2185,222 @@ export default function OnboardingPage() {
                 <div className="bg-slate-50 p-6 rounded-lg">
                   <h4 className="text-lg font-semibold text-gray-800 mb-4">Test Scores</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                    <div>
+                    <div className="md:col-span-2">
                       <label className="flex items-center text-sm font-semibold text-gray-700 mb-2">
                         <input
                           type="checkbox"
                           className="mr-2"
                           checked={formData.greTaken}
-                          onChange={(e) => setFormData({ ...formData, greTaken: e.target.checked })}
+                          onChange={(e) => {
+                            setFormData({ ...formData, greTaken: e.target.checked })
+                            if (!e.target.checked) {
+                              setGreScorecard(null)
+                            }
+                          }}
                         />
                         GRE Taken
                       </label>
                       {formData.greTaken && (
-                        <input
-                          type="text"
-                          className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                          placeholder="GRE Score"
-                          value={formData.greScore}
-                          onChange={(e) => setFormData({ ...formData, greScore: e.target.value })}
-                        />
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-3">
+                          <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">GRE Score{formData.greTaken && <span className="text-red-500">*</span>}</label>
+                            <input
+                              type="text"
+                              required={formData.greTaken}
+                              className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                                fieldErrors.greScore ? 'border-red-500' : 'border-gray-300'
+                              }`}
+                              placeholder="Enter GRE score"
+                              value={formData.greScore}
+                              onChange={(e) => {
+                                setFormData({ ...formData, greScore: e.target.value })
+                                if (fieldErrors.greScore) {
+                                  const newErrors = { ...fieldErrors }
+                                  delete newErrors.greScore
+                                  setFieldErrors(newErrors)
+                                }
+                              }}
+                            />
+                            {fieldErrors.greScore && (
+                              <p className="mt-1 text-sm text-red-600 error-message">{fieldErrors.greScore}</p>
+                            )}
+                          </div>
+                          <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">Test Date (DD/MM/YYYY)</label>
+                            <input
+                              type="text"
+                              placeholder="DD/MM/YYYY"
+                              maxLength={10}
+                              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                              value={formData.greTestDate}
+                              onChange={(e) => {
+                                const formatted = formatDateInput(e.target.value, formData.greTestDate)
+                                setFormData({ ...formData, greTestDate: formatted })
+                              }}
+                            />
+                          </div>
+                          <div className="md:col-span-2">
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">
+                              GRE Scorecard/Certificate{formData.greTaken && <span className="text-red-500">*</span>}
+                            </label>
+                            {greScorecard && (
+                              <div className="flex items-center justify-between p-4 bg-green-50 border border-green-200 rounded-xl mb-2">
+                                <div className="flex items-center space-x-3">
+                                  <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                  </svg>
+                                  <div>
+                                    <p className="text-sm font-medium text-gray-900">{greScorecard.name}</p>
+                                    <p className="text-xs text-gray-500">{(greScorecard.size / 1024).toFixed(2)} KB</p>
+                                  </div>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setGreScorecard(null)
+                                    if (fieldErrors.greScorecard) {
+                                      const newErrors = { ...fieldErrors }
+                                      delete newErrors.greScorecard
+                                      setFieldErrors(newErrors)
+                                    }
+                                  }}
+                                  className="text-red-600 hover:text-red-800 font-medium text-sm"
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                            )}
+                            <input
+                              type="file"
+                              accept=".pdf,.jpg,.jpeg,.png"
+                              required={formData.greTaken && !greScorecard}
+                              className={`w-full text-sm border rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 file:mr-2 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 dark:file:bg-indigo-900/50 dark:file:text-indigo-300 ${
+                                fieldErrors.greScorecard ? 'border-red-500 dark:border-red-500' : 'border-slate-300 dark:border-slate-600'
+                              }`}
+                              onChange={(e) => {
+                                setGreScorecard(e.target.files?.[0] || null)
+                                if (fieldErrors.greScorecard) {
+                                  const newErrors = { ...fieldErrors }
+                                  delete newErrors.greScorecard
+                                  setFieldErrors(newErrors)
+                                }
+                              }}
+                            />
+                            {fieldErrors.greScorecard && (
+                              <p className="error-message mt-1 text-sm text-red-600">{fieldErrors.greScorecard}</p>
+                            )}
+                            <p className="mt-1 text-xs text-gray-500">Upload your GRE test scorecard (PDF, JPG, or PNG, max 10MB)</p>
+                          </div>
+                        </div>
                       )}
                     </div>
-                    <div>
+                    <div className="md:col-span-2">
                       <label className="flex items-center text-sm font-semibold text-gray-700 mb-2">
                         <input
                           type="checkbox"
                           className="mr-2"
                           checked={formData.toeflTaken}
-                          onChange={(e) => setFormData({ ...formData, toeflTaken: e.target.checked })}
+                          onChange={(e) => {
+                            setFormData({ ...formData, toeflTaken: e.target.checked })
+                            if (!e.target.checked) {
+                              setToeflScorecard(null)
+                            }
+                          }}
                         />
                         TOEFL Taken
                       </label>
                       {formData.toeflTaken && (
-                        <input
-                          type="text"
-                          className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                          placeholder="TOEFL Score"
-                          value={formData.toeflScore}
-                          onChange={(e) => setFormData({ ...formData, toeflScore: e.target.value })}
-                        />
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-3">
+                          <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">TOEFL Score{formData.toeflTaken && <span className="text-red-500">*</span>}</label>
+                            <input
+                              type="text"
+                              required={formData.toeflTaken}
+                              className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                                fieldErrors.toeflScore ? 'border-red-500' : 'border-gray-300'
+                              }`}
+                              placeholder="Enter TOEFL score"
+                              value={formData.toeflScore}
+                              onChange={(e) => {
+                                setFormData({ ...formData, toeflScore: e.target.value })
+                                if (fieldErrors.toeflScore) {
+                                  const newErrors = { ...fieldErrors }
+                                  delete newErrors.toeflScore
+                                  setFieldErrors(newErrors)
+                                }
+                              }}
+                            />
+                            {fieldErrors.toeflScore && (
+                              <p className="mt-1 text-sm text-red-600 error-message">{fieldErrors.toeflScore}</p>
+                            )}
+                          </div>
+                          <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">Test Date (DD/MM/YYYY)</label>
+                            <input
+                              type="text"
+                              placeholder="DD/MM/YYYY"
+                              maxLength={10}
+                              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                              value={formData.toeflTestDate}
+                              onChange={(e) => {
+                                const formatted = formatDateInput(e.target.value, formData.toeflTestDate)
+                                setFormData({ ...formData, toeflTestDate: formatted })
+                              }}
+                            />
+                          </div>
+                          <div className="md:col-span-2">
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">
+                              TOEFL Scorecard/Certificate{formData.toeflTaken && <span className="text-red-500">*</span>}
+                            </label>
+                            {toeflScorecard && (
+                              <div className="flex items-center justify-between p-4 bg-green-50 border border-green-200 rounded-xl mb-2">
+                                <div className="flex items-center space-x-3">
+                                  <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                  </svg>
+                                  <div>
+                                    <p className="text-sm font-medium text-gray-900">{toeflScorecard.name}</p>
+                                    <p className="text-xs text-gray-500">{(toeflScorecard.size / 1024).toFixed(2)} KB</p>
+                                  </div>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setToeflScorecard(null)
+                                    if (fieldErrors.toeflScorecard) {
+                                      const newErrors = { ...fieldErrors }
+                                      delete newErrors.toeflScorecard
+                                      setFieldErrors(newErrors)
+                                    }
+                                  }}
+                                  className="text-red-600 hover:text-red-800 font-medium text-sm"
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                            )}
+                            <input
+                              type="file"
+                              accept=".pdf,.jpg,.jpeg,.png"
+                              required={formData.toeflTaken && !toeflScorecard}
+                              className={`w-full text-sm border rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 file:mr-2 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 dark:file:bg-indigo-900/50 dark:file:text-indigo-300 ${
+                                fieldErrors.toeflScorecard ? 'border-red-500 dark:border-red-500' : 'border-slate-300 dark:border-slate-600'
+                              }`}
+                              onChange={(e) => {
+                                setToeflScorecard(e.target.files?.[0] || null)
+                                if (fieldErrors.toeflScorecard) {
+                                  const newErrors = { ...fieldErrors }
+                                  delete newErrors.toeflScorecard
+                                  setFieldErrors(newErrors)
+                                }
+                              }}
+                            />
+                            {fieldErrors.toeflScorecard && (
+                              <p className="error-message mt-1 text-sm text-red-600">{fieldErrors.toeflScorecard}</p>
+                            )}
+                            <p className="mt-1 text-xs text-gray-500">Upload your TOEFL test scorecard (PDF, JPG, or PNG, max 10MB)</p>
+                          </div>
+                        </div>
                       )}
                     </div>
                     <div>
@@ -1685,7 +2408,12 @@ export default function OnboardingPage() {
                       <select
                         className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         value={formData.languageTest}
-                        onChange={(e) => setFormData({ ...formData, languageTest: e.target.value })}
+                        onChange={(e) => {
+                          setFormData({ ...formData, languageTest: e.target.value })
+                          if (!e.target.value) {
+                            setLanguageTestScorecard(null)
+                          }
+                        }}
                       >
                         <option value="">None / Not Taken</option>
                         <option value="IELTS">IELTS</option>
@@ -1696,14 +2424,27 @@ export default function OnboardingPage() {
                     {formData.languageTest && (
                       <>
                         <div>
-                          <label className="block text-sm font-semibold text-gray-700 mb-2">{formData.languageTest} Score</label>
+                          <label className="block text-sm font-semibold text-gray-700 mb-2">{formData.languageTest} Score{formData.languageTest && <span className="text-red-500">*</span>}</label>
                           <input
                             type="text"
-                            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            required={!!formData.languageTest}
+                            className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                              fieldErrors.languageTestScore ? 'border-red-500' : 'border-gray-300'
+                            }`}
                             placeholder={`Enter ${formData.languageTest} score`}
                             value={formData.languageTestScore}
-                            onChange={(e) => setFormData({ ...formData, languageTestScore: e.target.value })}
+                            onChange={(e) => {
+                              setFormData({ ...formData, languageTestScore: e.target.value })
+                              if (fieldErrors.languageTestScore) {
+                                const newErrors = { ...fieldErrors }
+                                delete newErrors.languageTestScore
+                                setFieldErrors(newErrors)
+                              }
+                            }}
                           />
+                          {fieldErrors.languageTestScore && (
+                            <p className="mt-1 text-sm text-red-600 error-message">{fieldErrors.languageTestScore}</p>
+                          )}
                         </div>
                         <div>
                           <label className="block text-sm font-semibold text-gray-700 mb-2">Test Date (DD/MM/YYYY)</label>
@@ -1721,16 +2462,53 @@ export default function OnboardingPage() {
                         </div>
                         <div className="md:col-span-2">
                           <label className="block text-sm font-semibold text-gray-700 mb-2">
-                            {formData.languageTest} Scorecard/Certificate
+                            {formData.languageTest} Scorecard/Certificate{formData.languageTest && <span className="text-red-500">*</span>}
                           </label>
+                          {languageTestScorecard && (
+                            <div className="flex items-center justify-between p-4 bg-green-50 border border-green-200 rounded-xl mb-2">
+                              <div className="flex items-center space-x-3">
+                                <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                                <div>
+                                  <p className="text-sm font-medium text-gray-900">{languageTestScorecard.name}</p>
+                                  <p className="text-xs text-gray-500">{(languageTestScorecard.size / 1024).toFixed(2)} KB</p>
+                                </div>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setLanguageTestScorecard(null)
+                                  if (fieldErrors.languageTestScorecard) {
+                                    const newErrors = { ...fieldErrors }
+                                    delete newErrors.languageTestScorecard
+                                    setFieldErrors(newErrors)
+                                  }
+                                }}
+                                className="text-red-600 hover:text-red-800 font-medium text-sm"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          )}
                           <input
                             type="file"
                             accept=".pdf,.jpg,.jpeg,.png"
-                            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                            onChange={(e) => setLanguageTestScorecard(e.target.files?.[0] || null)}
+                            required={!!formData.languageTest && !languageTestScorecard}
+                            className={`w-full text-sm border rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 file:mr-2 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 dark:file:bg-indigo-900/50 dark:file:text-indigo-300 ${
+                              fieldErrors.languageTestScorecard ? 'border-red-500 dark:border-red-500' : 'border-slate-300 dark:border-slate-600'
+                            }`}
+                            onChange={(e) => {
+                              setLanguageTestScorecard(e.target.files?.[0] || null)
+                              if (fieldErrors.languageTestScorecard) {
+                                const newErrors = { ...fieldErrors }
+                                delete newErrors.languageTestScorecard
+                                setFieldErrors(newErrors)
+                              }
+                            }}
                           />
-                          {languageTestScorecard && (
-                            <p className="mt-1 text-sm text-green-600">Selected: {languageTestScorecard.name}</p>
+                          {fieldErrors.languageTestScorecard && (
+                            <p className="error-message mt-1 text-sm text-red-600">{fieldErrors.languageTestScorecard}</p>
                           )}
                           <p className="mt-1 text-xs text-gray-500">Upload your {formData.languageTest} test scorecard (PDF, JPG, or PNG, max 10MB)</p>
                         </div>
@@ -1800,11 +2578,4 @@ export default function OnboardingPage() {
       </div>
     </div>
   )
-}
-
-// Prevent Enter key from submitting the form
-const handleFormKeyDown = (e: React.KeyboardEvent<HTMLFormElement>) => {
-  if (e.key === 'Enter') {
-    e.preventDefault()
-  }
 }
