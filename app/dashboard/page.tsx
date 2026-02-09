@@ -36,6 +36,14 @@ export default function DashboardPage() {
         throw new Error('Failed to load profile')
       }
       const data = await res.json()
+      
+      // Check if onboarding is completed
+      if (!data.student.hasCompletedOnboarding) {
+        // Redirect to onboarding if not completed
+        router.push('/onboarding')
+        return
+      }
+      
       setUser({
         firstName: data.student.firstName || '',
         lastName: data.student.lastName || '',

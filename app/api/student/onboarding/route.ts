@@ -576,6 +576,22 @@ export async function POST(req: NextRequest) {
       ipAddress: req.headers.get('x-forwarded-for') || req.ip,
     })
 
+    // Update JWT to reflect completed onboarding status
+    const user = await prisma.user.findUnique({
+      where: { id: session.userId },
+    })
+    
+    if (user) {
+      const { setAuthCookie } = await import('@/lib/auth')
+      await setAuthCookie({
+        userId: user.id,
+        email: user.email,
+        role: user.role,
+        emailVerified: user.emailVerified,
+        hasCompletedOnboarding: true,
+      })
+    }
+
     return NextResponse.json({
       success: true,
       student: {

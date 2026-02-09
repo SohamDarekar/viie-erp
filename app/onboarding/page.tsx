@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, useRef, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { PhoneInput } from 'react-international-phone'
 import { parsePhoneNumber, isValidPhoneNumber } from 'libphonenumber-js'
 import { CountryDropdown, Country } from '@/components/CountryDropdown'
@@ -185,10 +185,12 @@ const validatePassportDates = (issueDate: string, expiryDate: string): string | 
   return null
 }
 
-export default function OnboardingPage() {
+function OnboardingForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [currentStep, setCurrentStep] = useState(1)
   const [isEditMode, setIsEditMode] = useState(false)
+  const [successMessage, setSuccessMessage] = useState('')
   
   // Refs to track previous phone values to prevent country code deletion
   const phoneRef = useRef('')
@@ -281,7 +283,18 @@ export default function OnboardingPage() {
 
   useEffect(() => {
     loadProfile()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+  
+  // Check for verification success message
+  useEffect(() => {
+    if (searchParams.get('verified') === 'true') {
+      setSuccessMessage('Email verified successfully! Please complete your profile to continue.')
+      // Clear message after 5 seconds
+      setTimeout(() => setSuccessMessage(''), 5000)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
   
   // Sync refs with phone values to track country codes
   useEffect(() => {
@@ -297,12 +310,29 @@ export default function OnboardingPage() {
     try {
       const res = await fetch('/api/student/profile')
       
-      if (res.ok) {
-        const data = await res.json()
-        const student = data.student
+      if (!res.ok) {
+        if (res.status === 401) {
+          // Not authenticated, redirect to login
+          router.push('/login')
+          return
+        }
+        // Profile doesn't exist yet, continue with onboarding
+        setInitialLoading(false)
+        return
+      }
+
+      const data = await res.json()
+      const student = data.student
+      
+      // Check if onboarding is already completed
+      if (student.hasCompletedOnboarding) {
+        // Redirect to dashboard if already onboarded
+        router.push('/dashboard')
+        return
+      }
         
-        setIsEditMode(true)
-        setFormData({
+      setIsEditMode(true)
+      setFormData({
           firstName: student.firstName || '',
           lastName: student.lastName || '',
           phone: student.phone || '',
@@ -405,7 +435,6 @@ export default function OnboardingPage() {
             setPassportPhotoPreview(`/api/student/passport-photo`)
           }
         }
-      }
     } catch (err) {
       // Profile doesn't exist yet, continue with onboarding
     } finally {
@@ -823,6 +852,18 @@ export default function OnboardingPage() {
           <h1 className="text-4xl font-bold text-white mb-3">Welcome to VIIE ERP</h1>
           <p className="text-indigo-100 text-lg">Let&apos;s complete your profile to get started</p>
         </div>
+
+        {/* Success Message */}
+        {successMessage && (
+          <div className="mb-6 mx-auto max-w-2xl">
+            <div className="bg-green-50 border border-green-200 text-green-700 px-6 py-4 rounded-lg shadow-lg flex items-start animate-fade-in">
+              <svg className="w-6 h-6 mr-3 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+              <span className="font-medium">{successMessage}</span>
+            </div>
+          </div>
+        )}
 
         {/* Progress Steps */}
         <div className="mb-8">
@@ -2577,5 +2618,20 @@ export default function OnboardingPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function OnboardingPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto"></div>
+          <p className="mt-4 text-white">Loading...</p>
+        </div>
+      </div>
+    }>
+      <OnboardingForm />
+    </Suspense>
   )
 }

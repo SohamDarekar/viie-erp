@@ -1,24 +1,48 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [formData, setFormData] = useState({
     emailOrUsername: '',
     password: '',
   })
   const [error, setError] = useState('')
+  const [successMessage, setSuccessMessage] = useState('')
   const [loading, setLoading] = useState(false)
-  const [showResendVerification, setShowResendVerification] = useState(false)
+  const [showVerificationScreen, setShowVerificationScreen] = useState(false)
   const [resendLoading, setResendLoading] = useState(false)
   const [resendMessage, setResendMessage] = useState('')
+  const [userEmail, setUserEmail] = useState('')
+  const [resendCooldown, setResendCooldown] = useState(0)
+
+  // Check for verification success message
+  useEffect(() => {
+    if (searchParams.get('verified') === 'true') {
+      setSuccessMessage('Email verified successfully! Please log in to continue.')
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
+
+  // Cooldown timer effect
+  useEffect(() => {
+    if (resendCooldown > 0) {
+      const timer = setTimeout(() => {
+        setResendCooldown(resendCooldown - 1)
+      }, 1000)
+      return () => clearTimeout(timer)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resendCooldown])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
-    setShowResendVerification(false)
+    setSuccessMessage('')
+    setShowVerificationScreen(false)
     setResendMessage('')
     setLoading(true)
 
@@ -32,28 +56,33 @@ export default function LoginPage() {
       const data = await res.json()
 
       if (!res.ok) {
-        setError(data.error || 'Login failed')
-        
-        // Show resend verification option if email not verified
-        if (data.error?.includes('verify your email')) {
-          setShowResendVerification(true)
+        // Show verification screen if email not verified
+        if (data.needsVerification) {
+          setUserEmail(formData.emailOrUsername)
+          setShowVerificationScreen(true)
+          // Clear the form
+          setFormData({ emailOrUsername: '', password: '' })
+        } else {
+          setError(data.error || 'Login failed')
         }
         return
       }
 
-      // Check for stored redirect path
-      const storedPath = sessionStorage.getItem('redirectAfterLogin')
-      sessionStorage.removeItem('redirectAfterLogin') // Clear it
-      
-      if (storedPath && storedPath !== '/login') {
-        // Redirect to the stored URL
-        router.push(storedPath)
+      // Redirect based on role and onboarding status
+      // Onboarding check takes priority over any stored paths
+      if (data.user.role === 'ADMIN') {
+        router.push('/admin')
+      } else if (!data.user.hasCompletedOnboarding) {
+        // Email is verified but onboarding not completed - must go to onboarding
+        sessionStorage.removeItem('redirectAfterLogin') // Clear any stored path
+        router.push('/onboarding')
       } else {
-        // Default redirect based on role
-        if (data.user.role === 'ADMIN') {
-          router.push('/admin')
-        } else if (!data.user.hasCompletedOnboarding) {
-          router.push('/onboarding')
+        // Fully onboarded - check for stored redirect path
+        const storedPath = sessionStorage.getItem('redirectAfterLogin')
+        sessionStorage.removeItem('redirectAfterLogin') // Clear it
+        
+        if (storedPath && storedPath !== '/login') {
+          router.push(storedPath)
         } else {
           router.push('/dashboard')
         }
@@ -66,35 +95,103 @@ export default function LoginPage() {
   }
 
   const handleResendVerification = async () => {
+    if (resendCooldown > 0) return
+    
     setResendLoading(true)
     setResendMessage('')
-    setError('')
 
     try {
-      // Check if emailOrUsername is an email
-      const emailToSend = formData.emailOrUsername.includes('@') 
-        ? formData.emailOrUsername 
-        : formData.emailOrUsername // If username, API will need to handle it
-
       const res = await fetch('/api/auth/resend-verification', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: emailToSend }),
+        body: JSON.stringify({ email: userEmail }),
       })
 
       const data = await res.json()
 
       if (res.ok) {
         setResendMessage(data.message || 'Verification email sent!')
-        setShowResendVerification(false)
-      } else {
-        setError(data.error || 'Failed to send verification email')
+        // Set 60 second cooldown after successful resend
+        setResendCooldown(60)
       }
     } catch (err) {
-      setError('An error occurred while sending verification email')
+      // Handle silently
     } finally {
       setResendLoading(false)
     }
+  }
+
+  // If showing verification screen, render that instead
+  if (showVerificationScreen) {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-4 relative overflow-hidden">
+        {/* Background decorative elements */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute -top-40 -right-40 w-80 h-80 bg-primary-400 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse"></div>
+          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-secondary-400 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse delay-1000"></div>
+        </div>
+
+        <div className="max-w-md w-full relative">
+          <div className="card animate-slide-up text-center">
+            {/* Success Icon */}
+            <div className="mb-6 flex justify-center">
+              <div className="w-24 h-24 rounded-full bg-green-100 flex items-center justify-center">
+                <svg className="w-12 h-12 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                </svg>
+              </div>
+            </div>
+
+            {/* Title */}
+            <h2 className="text-3xl font-bold text-slate-800 dark:text-white mb-4">
+              Check your email!
+            </h2>
+
+            {/* Main Message */}
+            <p className="text-slate-600 dark:text-slate-400 mb-6 text-lg">
+              Account exists but is not verified. Please verify your email to continue onboarding.
+            </p>
+
+            {/* Success Message if resend worked */}
+            {resendMessage && (
+              <div className="mb-6 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg">
+                <p className="text-sm font-medium">{resendMessage}</p>
+              </div>
+            )}
+
+            {/* Info Box */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 text-left">
+              <div className="flex items-start">
+                <svg className="w-5 h-5 text-blue-600 mt-0.5 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                </svg>
+                <div className="text-sm text-blue-700">
+                  Can&apos;t find the email? Check your spam folder or{' '}
+                  <button
+                    onClick={handleResendVerification}
+                    disabled={resendLoading || resendCooldown > 0}
+                    className="font-semibold underline hover:no-underline disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {resendLoading ? 'sending...' : resendCooldown > 0 ? `resend in ${resendCooldown}s` : 'resend verification email'}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Button */}
+            <button
+              onClick={() => {
+                setShowVerificationScreen(false)
+                setResendMessage('')
+              }}
+              className="w-full btn btn-primary text-lg py-3"
+            >
+              Go to Login →
+            </button>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -119,7 +216,16 @@ export default function LoginPage() {
           <p className="mt-3 text-slate-600 dark:text-slate-400 text-lg">Welcome back! Sign in to continue</p>
         </div>
 
-        {/* Login card */}
+        {/* LsuccessMessage && (
+              <div className="alert alert-success bg-green-50 border border-green-200 text-green-700">
+                <svg className="w-5 h-5 inline mr-2" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                {successMessage}
+              </div>
+            )}
+
+            {ogin card */}
         <div className="card animate-slide-up">
           <form className="space-y-6" onSubmit={handleSubmit}>
             {error && (
@@ -131,30 +237,7 @@ export default function LoginPage() {
               </div>
             )}
 
-            {resendMessage && (
-              <div className="alert alert-success bg-green-50 border border-green-200 text-green-700">
-                <svg className="w-5 h-5 inline mr-2" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                </svg>
-                {resendMessage}
-              </div>
-            )}
 
-            {showResendVerification && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <p className="text-sm text-blue-700 mb-3">
-                  Haven&apos;t received the verification email?
-                </p>
-                <button
-                  type="button"
-                  onClick={handleResendVerification}
-                  disabled={resendLoading}
-                  className="w-full btn bg-blue-600 hover:bg-blue-700 text-white py-2"
-                >
-                  {resendLoading ? 'Sending...' : 'Resend Verification Email'}
-                </button>
-              </div>
-            )}
 
             <div className="space-y-5">
               <div>
@@ -243,5 +326,20 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
+          <p className="mt-4 text-slate-600">Loading...</p>
+        </div>
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
   )
 }

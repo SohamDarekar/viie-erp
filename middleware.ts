@@ -105,9 +105,37 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(loginUrl)
     }
     
-    // Simply redirect to login without adding the 'from' parameter
     const loginUrl = new URL('/login', request.url)
     return NextResponse.redirect(loginUrl)
+  }
+
+  // For students, enforce onboarding completion before accessing protected routes
+  if (session.role === 'STUDENT') {
+    const hasCompletedOnboarding = session.hasCompletedOnboarding ?? false
+
+    // If trying to access onboarding page
+    if (pathname.startsWith('/onboarding')) {
+      // Only allow if email is verified but onboarding is not complete
+      if (!session.emailVerified) {
+        return NextResponse.redirect(new URL('/login', request.url))
+      }
+      if (hasCompletedOnboarding) {
+        // Already completed onboarding, redirect to dashboard
+        return NextResponse.redirect(new URL('/dashboard', request.url))
+      }
+      // Allow access to onboarding
+      return NextResponse.next()
+    }
+
+    // For all other student routes (dashboard, profile, settings, events, etc.)
+    if (pathname.startsWith('/dashboard') || pathname.startsWith('/profile') || pathname.startsWith('/settings') || pathname.startsWith('/events') || pathname.startsWith('/resources')) {
+      // Must have completed onboarding
+      if (!hasCompletedOnboarding) {
+        return NextResponse.redirect(new URL('/onboarding', request.url))
+      }
+      // Allow access
+      return NextResponse.next()
+    }
   }
 
   // Admin-only routes
@@ -115,13 +143,6 @@ export async function middleware(request: NextRequest) {
     if (session.role !== 'ADMIN') {
       // If user is logged in but not an admin, redirect to their appropriate dashboard
       return NextResponse.redirect(new URL('/dashboard', request.url))
-    }
-  }
-
-  // Student routes
-  if (pathname.startsWith('/dashboard') || pathname.startsWith('/student') || pathname.startsWith('/profile') || pathname.startsWith('/settings') || pathname.startsWith('/events') || pathname.startsWith('/onboarding')) {
-    if (session.role !== 'STUDENT') {
-      return NextResponse.redirect(new URL('/admin', request.url))
     }
   }
 

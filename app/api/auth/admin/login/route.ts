@@ -56,6 +56,8 @@ export async function POST(req: NextRequest) {
       userId: adminUser.id,
       email: adminUser.email,
       role: 'ADMIN',
+      emailVerified: true,
+      hasCompletedOnboarding: true, // Admins don't have onboarding, so this is always true
     })
 
     // Audit log

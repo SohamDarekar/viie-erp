@@ -69,17 +69,19 @@ export async function GET(req: NextRequest) {
           verificationToken: null,
         },
       })
-      console.log(`✓ User already verified, logging in: ${updatedUser.email}`)
+      console.log(`✓ User already verified: ${updatedUser.email}`)
     }
 
-    // Set auth cookie to log them in
+    // Auto-login the user after email verification and redirect to onboarding
     await setAuthCookie({
       userId: updatedUser.id,
       email: updatedUser.email,
       role: updatedUser.role,
+      emailVerified: true,
+      hasCompletedOnboarding: false,
     })
 
-    // Redirect to onboarding page
+    // Redirect directly to onboarding page
     return NextResponse.redirect(`${baseUrl}/onboarding?verified=true`)
   } catch (error) {
     console.error('Email verification error:', error)

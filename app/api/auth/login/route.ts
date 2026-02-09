@@ -38,17 +38,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    console.log(`Login attempt for ${emailOrUsername} - emailVerified: ${user.emailVerified}`)
-
-    // Check if email is verified
-    if (!user.emailVerified) {
-      return NextResponse.json(
-        { error: 'Please verify your email before logging in. Check your inbox for the verification link.' },
-        { status: 403 }
-      )
-    }
-
-    // Verify password
+    // Verify password first (before checking verification status)
     const isValid = await verifyPassword(password, user.password)
 
     if (!isValid) {
@@ -58,11 +48,30 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Set auth cookie
+    console.log(`Login attempt for ${emailOrUsername} - emailVerified: ${user.emailVerified}`)
+
+    // Enforce authentication flow:
+    // 1. If email not verified, deny login with specific message
+    if (!user.emailVerified) {
+      return NextResponse.json(
+        { 
+          error: 'Account exists but is not verified. Please verify your email to continue onboarding.',
+          needsVerification: true
+        },
+        { status: 403 }
+      )
+    }
+
+    // 2. If email verified but onboarding not completed, allow login but flag for onboarding redirect
+    // The frontend will redirect to /onboarding based on hasCompletedOnboarding flag
+
+    // Set auth cookie with email verification and onboarding status
     await setAuthCookie({
       userId: user.id,
       email: user.email,
       role: user.role,
+      emailVerified: user.emailVerified,
+      hasCompletedOnboarding: user.student?.hasCompletedOnboarding ?? false,
     })
 
     // Audit log

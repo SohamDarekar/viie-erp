@@ -11,6 +11,8 @@ export interface JWTPayload {
   userId: string
   email: string
   role: 'STUDENT' | 'ADMIN'
+  emailVerified?: boolean
+  hasCompletedOnboarding?: boolean
   [key: string]: any
 }
 
