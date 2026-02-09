@@ -79,69 +79,118 @@ export async function middleware(request: NextRequest) {
     response.headers.set('X-RateLimit-Remaining', remaining.toString())
   }
 
-  // Public routes
-  const publicRoutes = [
-    '/login', 
-    '/register', 
-    '/admin/login', 
-    '/api/auth/login', 
-    '/api/auth/register', 
-    '/api/auth/admin/login',
+  // Define route categories
+  const emailVerificationRoutes = [
     '/api/auth/verify-email',
     '/api/auth/resend-verification'
   ]
-  const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route))
+  
+  const authApiRoutes = [
+    '/api/auth/login',
+    '/api/auth/register',
+    '/api/auth/admin/login'
+  ]
 
-  if (isPublicRoute) {
-    return NextResponse.next()
-  }
+  const publicAuthPages = ['/login', '/register']
+  const adminLoginPage = '/admin/login'
+
+  // Check if route is email verification related (always accessible)
+  const isEmailVerificationRoute = emailVerificationRoutes.some(route => pathname.startsWith(route))
+  
+  // Check if route is auth API (always accessible)
+  const isAuthApiRoute = authApiRoutes.some(route => pathname.startsWith(route))
 
   // Check authentication
   const session = await getSessionFromRequest(request)
 
-  if (!session) {
-    if (pathname.startsWith('/admin')) {
-      const loginUrl = new URL('/admin/login', request.url)
-      return NextResponse.redirect(loginUrl)
+  // Handle public auth pages (/login, /register)
+  if (publicAuthPages.some(route => pathname.startsWith(route))) {
+    if (!session) {
+      // Not authenticated - allow access
+      return NextResponse.next()
     }
-    
-    const loginUrl = new URL('/login', request.url)
-    return NextResponse.redirect(loginUrl)
+
+    // Authenticated - apply routing logic
+    if (session.role === 'STUDENT') {
+      // Student is authenticated
+      if (!session.emailVerified) {
+        // Email not verified - allow /login (to see verification message)
+        return NextResponse.next()
+      }
+      
+      const hasCompletedOnboarding = session.hasCompletedOnboarding ?? false
+      
+      if (!hasCompletedOnboarding) {
+        // Email verified but onboarding incomplete - redirect to onboarding
+        return NextResponse.redirect(new URL('/onboarding', request.url))
+      }
+      
+      // Fully onboarded - redirect to dashboard
+      return NextResponse.redirect(new URL('/dashboard', request.url))
+    } else if (session.role === 'ADMIN') {
+      // Admin should go to admin dashboard
+      return NextResponse.redirect(new URL('/admin', request.url))
+    }
   }
 
-  // For students, enforce onboarding completion before accessing protected routes
+  // Handle admin login page
+  if (pathname.startsWith(adminLoginPage)) {
+    if (session && session.role === 'ADMIN') {
+      // Already logged in as admin - redirect to admin dashboard
+      return NextResponse.redirect(new URL('/admin', request.url))
+    }
+    // Not logged in or not admin - allow access
+    return NextResponse.next()
+  }
+
+  // Allow email verification and auth API routes without authentication
+  if (isEmailVerificationRoute || isAuthApiRoute) {
+    return NextResponse.next()
+  }
+
+  // All other routes require authentication
+  if (!session) {
+    if (pathname.startsWith('/admin')) {
+      return NextResponse.redirect(new URL('/admin/login', request.url))
+    }
+    return NextResponse.redirect(new URL('/login', request.url))
+  }
+
+  // Handle student-specific routing with global email verification and onboarding enforcement
   if (session.role === 'STUDENT') {
     const hasCompletedOnboarding = session.hasCompletedOnboarding ?? false
 
-    // If trying to access onboarding page
+    // STEP 1: Check email verification (highest priority)
+    if (!session.emailVerified) {
+      // Email not verified - redirect to login for all protected routes
+      return NextResponse.redirect(new URL('/login', request.url))
+    }
+
+    // STEP 2: Check onboarding completion
     if (pathname.startsWith('/onboarding')) {
-      // Only allow if email is verified but onboarding is not complete
-      if (!session.emailVerified) {
-        return NextResponse.redirect(new URL('/login', request.url))
-      }
+      // Trying to access onboarding page
       if (hasCompletedOnboarding) {
-        // Already completed onboarding, redirect to dashboard
+        // Already completed - redirect to dashboard
         return NextResponse.redirect(new URL('/dashboard', request.url))
       }
-      // Allow access to onboarding
+      // Email verified and onboarding incomplete - allow access
       return NextResponse.next()
     }
 
-    // For all other student routes (dashboard, profile, settings, events, etc.)
-    if (pathname.startsWith('/dashboard') || pathname.startsWith('/profile') || pathname.startsWith('/settings') || pathname.startsWith('/events') || pathname.startsWith('/resources')) {
-      // Must have completed onboarding
-      if (!hasCompletedOnboarding) {
-        return NextResponse.redirect(new URL('/onboarding', request.url))
-      }
-      // Allow access
-      return NextResponse.next()
+    // STEP 3: For all other protected routes, enforce onboarding completion
+    if (!hasCompletedOnboarding) {
+      // Email verified but onboarding not complete - force to onboarding
+      return NextResponse.redirect(new URL('/onboarding', request.url))
     }
+
+    // Email verified and onboarding complete - allow access to protected routes
+    return NextResponse.next()
   }
 
-  // Admin-only routes
+  // Handle admin-only routes
   if (pathname.startsWith('/admin') && !pathname.startsWith('/admin/login')) {
     if (session.role !== 'ADMIN') {
-      // If user is logged in but not an admin, redirect to their appropriate dashboard
+      // Not an admin - redirect to student dashboard
       return NextResponse.redirect(new URL('/dashboard', request.url))
     }
   }
