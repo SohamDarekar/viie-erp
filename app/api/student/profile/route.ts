@@ -8,6 +8,13 @@ import { validateAndNormalizePhone } from '@/lib/phone'
 
 export const dynamic = 'force-dynamic'
 
+// Helper to ensure dates are saved as UTC Noon to avoid timezone shifts
+const parseDateToNoonUTC = (dateString: string) => {
+  if (!dateString) return undefined
+  // Append T12:00:00Z to ensure it's treated as UTC Noon
+  return new Date(`${dateString}T12:00:00Z`)
+}
+
 const updateProfileSchema = z.object({
   firstName: z.string().min(1).optional(),
   lastName: z.string().min(1).optional(),
@@ -242,7 +249,7 @@ export async function PUT(req: NextRequest) {
         ...(data.lastName && { lastName: data.lastName }),
         ...(data.email && { email: data.email }),
         ...(data.phone !== undefined && { phone: data.phone }),
-        ...(data.dateOfBirth && { dateOfBirth: new Date(data.dateOfBirth) }),
+        ...(data.dateOfBirth && { dateOfBirth: parseDateToNoonUTC(data.dateOfBirth) }),
         ...(data.gender !== undefined && { gender: data.gender }),
         ...(data.nationality !== undefined && { nationality: data.nationality }),
         ...(data.countryOfBirth !== undefined && { countryOfBirth: data.countryOfBirth }),
@@ -255,8 +262,8 @@ export async function PUT(req: NextRequest) {
         ...(data.passportGivenName !== undefined && { passportGivenName: data.passportGivenName }),
         ...(data.passportLastName !== undefined && { passportLastName: data.passportLastName }),
         ...(data.passportIssueLocation !== undefined && { passportIssueLocation: data.passportIssueLocation }),
-        ...(data.passportIssueDate && { passportIssueDate: new Date(data.passportIssueDate) }),
-        ...(data.passportExpiryDate && { passportExpiryDate: new Date(data.passportExpiryDate) }),
+        ...(data.passportIssueDate && { passportIssueDate: parseDateToNoonUTC(data.passportIssueDate) }),
+        ...(data.passportExpiryDate && { passportExpiryDate: parseDateToNoonUTC(data.passportExpiryDate) }),
         ...(data.address !== undefined && { address: data.address }),
         ...(data.postalCode !== undefined && { postalCode: data.postalCode }),
         // Course details
@@ -287,8 +294,8 @@ export async function PUT(req: NextRequest) {
         ...(data.bachelorsFromInstitute !== undefined && { bachelorsFromInstitute: data.bachelorsFromInstitute }),
         ...(data.bachelorsCountry !== undefined && { bachelorsCountry: data.bachelorsCountry }),
         ...(data.bachelorsAddress !== undefined && { bachelorsAddress: data.bachelorsAddress }),
-        ...(data.bachelorsStartDate && { bachelorsStartDate: new Date(data.bachelorsStartDate) }),
-        ...(data.bachelorsEndDate && { bachelorsEndDate: new Date(data.bachelorsEndDate) }),
+        ...(data.bachelorsStartDate && { bachelorsStartDate: parseDateToNoonUTC(data.bachelorsStartDate) }),
+        ...(data.bachelorsEndDate && { bachelorsEndDate: parseDateToNoonUTC(data.bachelorsEndDate) }),
         ...(data.bachelorsGrade !== undefined && { bachelorsGrade: data.bachelorsGrade }),
         ...(data.bachelorsCompleted !== undefined && { bachelorsCompleted: data.bachelorsCompleted }),
         ...(data.greTaken !== undefined && { greTaken: data.greTaken }),
@@ -297,7 +304,7 @@ export async function PUT(req: NextRequest) {
         ...(data.toeflScore !== undefined && { toeflScore: data.toeflScore }),
         ...(data.languageTest !== undefined && { languageTest: data.languageTest }),
         ...(data.languageTestScore !== undefined && { languageTestScore: data.languageTestScore }),
-        ...(data.languageTestDate && { languageTestDate: new Date(data.languageTestDate) }),
+        ...(data.languageTestDate && { languageTestDate: parseDateToNoonUTC(data.languageTestDate) }),
         // Financial fields
         ...(data.personalEverEmployed !== undefined && { personalEverEmployed: data.personalEverEmployed }),
         ...(data.personalTakingLoan !== undefined && { personalTakingLoan: data.personalTakingLoan }),
@@ -328,6 +335,11 @@ export async function PUT(req: NextRequest) {
 
         // Create new work experiences
         for (const workExp of data.workExperiences) {
+          const startDate = parseDateToNoonUTC(workExp.startDate)
+          const endDate = parseDateToNoonUTC(workExp.endDate)
+          
+          if (!startDate || !endDate) continue
+
           const createdWorkExp = await prisma.workExperience.create({
             data: {
               studentId: student.id,
@@ -335,8 +347,8 @@ export async function PUT(req: NextRequest) {
               organizationName: workExp.organizationName,
               organizationAddress: workExp.organizationAddress,
               organizationContact: workExp.organizationContact,
-              startDate: new Date(workExp.startDate),
-              endDate: new Date(workExp.endDate),
+              startDate: startDate,
+              endDate: endDate,
             },
           })
 

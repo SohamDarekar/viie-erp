@@ -1,10 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  experimental: {
-    serverActions: {
-      bodySizeLimit: '10mb',
-    },
-  },
+  output: 'standalone',
   // Disable image optimization for self-hosted deployment
   images: {
     unoptimized: true,

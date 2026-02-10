@@ -90,6 +90,10 @@ export async function middleware(request: NextRequest) {
     '/api/auth/register',
     '/api/auth/admin/login'
   ]
+  
+  const onboardingApiRoutes = [
+    '/api/student/onboarding'
+  ]
 
   const publicAuthPages = ['/login', '/register']
   const adminLoginPage = '/admin/login'
@@ -99,6 +103,9 @@ export async function middleware(request: NextRequest) {
   
   // Check if route is auth API (always accessible)
   const isAuthApiRoute = authApiRoutes.some(route => pathname.startsWith(route))
+  
+  // Check if route is onboarding API (accessible for authenticated users even without email verification)
+  const isOnboardingApiRoute = onboardingApiRoutes.some(route => pathname.startsWith(route))
 
   // Check authentication
   const session = await getSessionFromRequest(request)
@@ -143,8 +150,8 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // Allow email verification and auth API routes without authentication
-  if (isEmailVerificationRoute || isAuthApiRoute) {
+  // Allow email verification, auth API routes, and onboarding API without authentication checks
+  if (isEmailVerificationRoute || isAuthApiRoute || (isOnboardingApiRoute && session)) {
     return NextResponse.next()
   }
 

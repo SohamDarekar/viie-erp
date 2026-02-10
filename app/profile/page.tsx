@@ -149,6 +149,31 @@ const TABS: { id: Tab; label: string; icon: JSX.Element }[] = [
   { id: 'post-admission', label: 'Post Admission', icon: <FaCheckCircle /> },
 ]
 
+// Helper function to safely format dates for input fields
+// Chrome's <input type="date"> strictly requires YYYY-MM-DD format with leading zeros
+const formatDateForInput = (dateStr: string | null | undefined): string => {
+  if (!dateStr) return ''
+  const str = String(dateStr)
+
+  // Try to extract YYYY-MM-DD from the beginning (handles ISO strings like "2006-07-03T12:00:00Z")
+  const isoMatch = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/)
+  if (isoMatch) {
+    return `${isoMatch[1]}-${isoMatch[2].padStart(2, '0')}-${isoMatch[3].padStart(2, '0')}`
+  }
+
+  // Fallback: parse the date string and format as YYYY-MM-DD using UTC to avoid timezone shifts
+  try {
+    const date = new Date(str)
+    if (isNaN(date.getTime())) return ''
+    const year = date.getUTCFullYear()
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0')
+    const day = String(date.getUTCDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  } catch {
+    return ''
+  }
+}
+
 export default function ProfilePage() {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<Tab>('personal')
@@ -307,7 +332,7 @@ export default function ProfilePage() {
         lastName: student.lastName || '',
         email: student.user?.email || student.email || '',
         phone: student.phone || '',
-        dateOfBirth: student.dateOfBirth ? new Date(student.dateOfBirth).toISOString().split('T')[0] : '',
+        dateOfBirth: formatDateForInput(student.dateOfBirth),
         gender: student.gender || '',
         nationality: student.nationality || '',
         countryOfBirth: student.countryOfBirth || '',
@@ -316,8 +341,8 @@ export default function ProfilePage() {
         passportGivenName: student.passportGivenName || '',
         passportLastName: student.passportLastName || '',
         passportIssueLocation: student.passportIssueLocation || '',
-        passportIssueDate: student.passportIssueDate ? new Date(student.passportIssueDate).toISOString().split('T')[0] : '',
-        passportExpiryDate: student.passportExpiryDate ? new Date(student.passportExpiryDate).toISOString().split('T')[0] : '',
+        passportIssueDate: formatDateForInput(student.passportIssueDate),
+        passportExpiryDate: formatDateForInput(student.passportExpiryDate),
         address: student.address || '',
         postalCode: student.postalCode || '',
         program: student.program || '',
@@ -329,7 +354,11 @@ export default function ProfilePage() {
         parentEmail: student.parentEmail || '',
         parentRelation: student.parentRelation || '',
         // Travel fields
-        travelHistory: student.travelHistory || [],
+        travelHistory: (student.travelHistory || []).map((entry: TravelEntry) => ({
+          ...entry,
+          startDate: formatDateForInput(entry.startDate),
+          endDate: formatDateForInput(entry.endDate),
+        })),
         visaRefused: student.visaRefused ?? null,
         visaRefusedCountry: student.visaRefusedCountry || '',
         // Education fields
@@ -354,8 +383,8 @@ export default function ProfilePage() {
         bachelorsFromInstitute: student.bachelorsFromInstitute || '',
         bachelorsCountry: student.bachelorsCountry || '',
         bachelorsAddress: student.bachelorsAddress || '',
-        bachelorsStartDate: student.bachelorsStartDate ? new Date(student.bachelorsStartDate).toISOString().split('T')[0] : '',
-        bachelorsEndDate: student.bachelorsEndDate ? new Date(student.bachelorsEndDate).toISOString().split('T')[0] : '',
+        bachelorsStartDate: formatDateForInput(student.bachelorsStartDate),
+        bachelorsEndDate: formatDateForInput(student.bachelorsEndDate),
         bachelorsGrade: student.bachelorsGrade || '',
         greTaken: student.greTaken || false,
         greScore: student.greScore || '',
@@ -370,7 +399,10 @@ export default function ProfilePage() {
         personalLoanBankName: student.personalLoanBankName || '',
         motherIncomeType: student.motherIncomeType || '',
         fatherIncomeType: student.fatherIncomeType || '',
-        otherSources: student.otherSources || [],
+        otherSources: (student.otherSources || []).map((source: OtherSource) => ({
+          ...source,
+          dateOfBirth: formatDateForInput(source.dateOfBirth),
+        })),
       })
 
       // Load work experiences
@@ -383,8 +415,8 @@ export default function ProfilePage() {
             organizationName: exp.organizationName || '',
             organizationAddress: exp.organizationAddress || '',
             organizationContact: exp.organizationContact || '',
-            startDate: exp.startDate ? new Date(exp.startDate).toISOString().split('T')[0] : '',
-            endDate: exp.endDate ? new Date(exp.endDate).toISOString().split('T')[0] : '',
+            startDate: formatDateForInput(exp.startDate),
+            endDate: formatDateForInput(exp.endDate),
             hasReference: exp.reference ? 'yes' : 'no',
             referenceName: exp.reference?.name || '',
             referencePosition: exp.reference?.position || '',
@@ -1028,6 +1060,8 @@ export default function ProfilePage() {
                         <p className="mt-1 text-sm text-red-600 error-message">{fieldErrors.firstName}</p>
                       )}
                     </div>
+                    {/* ... rest of the component is identical to previous versions ... */}
+                    {/* Just truncated for brevity as the key fix is in loadProfile at the top */}
                     <div>
                       <label className="block text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-2">Last Name <span className="text-red-500">*</span></label>
                       <input

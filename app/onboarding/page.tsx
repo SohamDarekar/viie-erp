@@ -573,11 +573,16 @@ function OnboardingForm() {
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
+    console.log('🔥 FORM SUBMIT - preventing default')
     e.preventDefault()
+    e.stopPropagation()
     
     if (currentStep < totalSteps) {
+      console.log('🔥 Not on final step, current:', currentStep, 'total:', totalSteps)
       return
     }
+    
+    console.log('🔥 ON FINAL STEP - proceeding with API call')
     
     // Final validation
     if (!validateStep(1)) {
@@ -591,13 +596,14 @@ function OnboardingForm() {
     setLoading(true)
 
     try {
+      console.log('🔥 Starting fetch to API')
       const url = isEditMode ? '/api/student/profile' : '/api/student/onboarding'
       const method = isEditMode ? 'PUT' : 'POST'
+      console.log('🔥 Target URL:', url)
 
       // Check if we have actual files to upload (only for onboarding, not edit mode)
       // In edit mode, files are already uploaded or will be uploaded separately
       const hasFiles = !isEditMode && ((marksheet10th instanceof File) || (marksheet12th instanceof File) || (ieltsScorecard instanceof File) || (passportFile instanceof File) || (languageTestScorecard instanceof File) || (greScorecard instanceof File) || (toeflScorecard instanceof File) || (passportPhoto instanceof File) || (aadharCard instanceof File))
-      console.log('Has files to upload:', hasFiles)
       
       let payload: any
       let headers: any = {}
@@ -767,32 +773,43 @@ function OnboardingForm() {
         console.log('Payload after stringify:', payload)
       }
 
+      console.log('🔥 About to call fetch with credentials')
       const res = await fetch(url, {
         method,
         headers,
         body: payload,
+        credentials: 'include', // This ensures cookies are sent
       })
 
+      console.log('🔥 Fetch completed with status:', res.status)
       const data = await res.json()
+      console.log('🔥 Response data:', data)
 
       if (!res.ok) {
+        console.log('🔥 Request failed with error:', data.error)
         setError(data.error || (isEditMode ? 'Update failed' : 'Onboarding failed'))
         scrollToFirstError()
         return
       }
 
+      console.log('🔥 Success! Redirecting to dashboard')
       // Only navigate on success
       router.push('/dashboard')
     } catch (err) {
+      console.log('🔥 Catch block - error occurred:', err)
       setError('An error occurred. Please try again.')
       scrollToFirstError()
     } finally {
+      console.log('🔥 Finally - setting loading false')
       setLoading(false)
     }
   }
 
   const nextStep = (e?: React.MouseEvent) => {
-    if (e) e.preventDefault()
+    if (e) {
+      e.preventDefault()
+      e.stopPropagation()
+    }
     
     // Validate current step before moving forward
     if (!validateStep(currentStep)) {
@@ -804,7 +821,10 @@ function OnboardingForm() {
   }
 
   const prevStep = (e?: React.MouseEvent) => {
-    if (e) e.preventDefault()
+    if (e) {
+      e.preventDefault()
+      e.stopPropagation()
+    }
     if (currentStep > 1) setCurrentStep(currentStep - 1)
   }
   
