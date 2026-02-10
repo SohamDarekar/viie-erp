@@ -793,8 +793,10 @@ function OnboardingForm() {
       }
 
       console.log('🔥 Success! Redirecting to dashboard')
-      // Only navigate on success
-      router.push('/dashboard')
+      // Refresh router cache to pick up updated session before redirecting
+      router.refresh()
+      // Force a full page navigation to ensure new cookie is picked up
+      window.location.href = '/dashboard'
     } catch (err) {
       console.log('🔥 Catch block - error occurred:', err)
       setError('An error occurred. Please try again.')
