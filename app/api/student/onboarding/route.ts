@@ -567,6 +567,34 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Recalculate profile completion after documents are uploaded
+    // This ensures documents are counted in the initial completion percentage
+    const updatedStudent = await prisma.student.findUnique({
+      where: { id: student.id },
+      include: {
+        documents: true,
+        workExperiences: true,
+        batch: {
+          include: {
+            formVisibility: true,
+          },
+        },
+      },
+    })
+
+    if (updatedStudent) {
+      const recalculatedCompletion = calculateProfileCompletion(
+        updatedStudent,
+        updatedStudent.batch?.formVisibility || null
+      )
+      
+      // Update the student record with the recalculated completion
+      await prisma.student.update({
+        where: { id: student.id },
+        data: { profileCompletion: recalculatedCompletion },
+      })
+    }
+
     // Audit log
     await createAuditLog({
       userId: session.userId,
